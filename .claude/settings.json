@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(scripts/hub.sh:*)",
+      "Bash(scripts/suggest.sh:*)",
+      "Bash(mkdir:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(date:*)",
+      "Read",
+      "Write",
+      "Edit",
+      "WebSearch",
+      "WebFetch",
+      "Agent",
+      "Bash(bash scripts/hub.sh:*)",
+      "Bash(./scripts/hub.sh:*)",
+      "Bash(bash ./scripts/hub.sh:*)",
+      "Bash(bash scripts/suggest.sh:*)",
+      "Bash(./scripts/suggest.sh:*)",
+      "Bash(echo:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Bash(cat .env)",
+      "Bash(cat .env.local)"
+    ]
+  }
+}
