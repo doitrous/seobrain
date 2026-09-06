@@ -967,3 +967,12 @@ Append the observed job id, run id, word counts, and any agent failures to `docs
 **Placeholder scan:** none.
 
 **Type consistency:** `hub.sh` commands used in agents and skill match Task 1's interface (`step JOB NAME FILE`, `article JOB FILE`, `audit JOB`, `schedule JOB`, `create-job FILE`, `run-start`, `run-finish ID FILE`). Payload keys in agents match `seo-rules.md` contracts and the hub README. `RESULT:` line contract shared by all agents and consumed by the skill.
+
+## Test run log (2026-09-06, local hub at http://localhost:3000, site `test-brain` id 8, reviewHours 0)
+
+- Dry run (`/weekly-run --dry-run --site test-brain`): one topic chosen by topic-scout, no jobs, no run row. First attempt ran with the allow-list ignored because the workspace was untrusted; fixed by trusting the workspace (README Setup step 4).
+- Full run (`/weekly-run --site test-brain`): run 2, job 9 "Hair Transplant in Egypt for UK Patients…" (GB/en). Steps: research (20 facts, 5 sources) → outline → draft → image_brief → audit fail (keyword placement: exact-substring match; 2 unsupported claims) → revise → audit pass → article en (8.8k chars, 6 FAQ) → localize:ar (7.8k chars) → scheduled. Summary posted, 35 min. Every subagent's `scripts/hub.sh` call was denied (they used `bash scripts/hub.sh`, absolute paths, `2>&1`, `;`, redirects), so the orchestrator posted from their files.
+- Fixes from the run: hub keyword check now ignores punctuation and English function words (seo-hub 0281a20); keyword-phrase guidance for topic-scout (f4c2f85); allow-list covers every invocation form, `hub.sh plan|audit` take an output file, call form pinned in all prompts (f405ac9).
+- Resume run (`--resume` with `localize:ar` removed from state): no re-dispatch needed (output files reused), no duplicate hub rows, run 2 stayed closed, job 9 stayed scheduled.
+- Verification run: auditor dispatched as a subagent posted `hub.sh audit` and `hub.sh step` with no denials. Hub guarded the already-scheduled job against the extra audit result.
+- Not exercised: publishing (custom adapter URL empty; cron with an image would take it to `waiting_image`), WordPress.
