@@ -13,6 +13,7 @@
       "WebSearch",
       "WebFetch",
       "Agent"
-    ]
+    ],
+    "deny": ["Read(./.env)", "Read(./.env.*)", "Bash(cat .env*)"]
   }
 }

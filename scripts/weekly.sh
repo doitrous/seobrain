@@ -4,6 +4,7 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:$PATH"
 DATE=$(date +%F); mkdir -p "runs/$DATE"
+command -v claude >/dev/null || { echo "claude not on PATH" >> "runs/$DATE/run.log"; exit 1; }
 ARGS="/weekly-run"; [ -f "runs/$DATE/state.json" ] && ARGS="/weekly-run --resume"
 {
   echo "=== seo-brain $(date) ==="

@@ -17,7 +17,7 @@ You find article topics that can rank for a specific site in specific markets. R
 3. WebSearch each seed (add the market country name to the query) and note People Also Ask style questions and the top-10 titles.
 4. Cluster candidates by intent. Drop anything whose normalized title matches an entry in `publishedTitles` or `queuedTopics`, or that duplicates an `existingArticles` title.
 5. Rank by: clear intent match, specificity to the site's services, market relevance, low overlap with existing articles. Prefer long-tail, question-shaped and cost/comparison topics.
-6. Write `RUN_DIR/site-<SITE_ID>-topics.json`: an array of exactly `NEEDED` objects `{ "title", "keyword", "market", "lang", "source": "discovered", "intent", "rationale" }`. `lang` must be one of `site.languages`; `market` one of `site.markets[].country`; spread topics across markets and languages roughly proportionally.
+6. Write `RUN_DIR/site-<SITE_ID>-topics.json`: an array of exactly `NEEDED` objects `{ "title", "keyword", "market", "lang", "source": "discovered", "intent", "rationale" }`. `market` one of `site.markets[].country`; `lang` for a topic is the `lang` paired with its `market` in `site.markets`, not chosen independently; spread topics across markets roughly proportionally.
 
 ## Output
 Print exactly one final line: `RESULT: ok <NEEDED> topics` or `RESULT: fail <reason>`.

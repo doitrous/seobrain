@@ -17,7 +17,7 @@ claude --model claude-opus-4-8 -p "/weekly-run --resume"   # continue today's ru
 Or interactively: `claude --model claude-opus-4-8` then type `/weekly-run`.
 
 ## Schedule (Friday 07:00, this Mac)
-`scripts/install-schedule.sh` installs a launchd agent that runs `scripts/weekly.sh`. The Mac must be awake at 07:00 (System Settings → Energy, or `pmset repeat wakeorpoweron F 06:55:00` once with admin rights). Logs: `runs/<date>/run.log`. Uninstall: `scripts/install-schedule.sh --uninstall`.
+`scripts/install-schedule.sh` installs a launchd agent that runs `scripts/weekly.sh`. The Mac must be awake at 07:00 (System Settings → Energy, or `pmset repeat wakeorpoweron F 06:55:00` once with admin rights) **and Omar must be logged in** — the job runs in the launchd `gui` domain and needs the logged-in session's Claude Code keychain login. Logs: `runs/<date>/run.log`. Uninstall: `scripts/install-schedule.sh --uninstall`.
 
 Alternative when the Mac cannot be awake: a Claude Code cloud routine (`/schedule` in Claude Code) on cron `0 7 * * 5` Africa/Cairo running `/weekly-run` from this repo, with `HUB_URL`/`HUB_TOKEN` as routine environment variables. Same skill, same agents.
 
@@ -33,5 +33,8 @@ plan → topics (queue first, then topic-scout) → jobs → researcher → writ
 
 ## Troubleshooting
 - `hub.sh` prints a 4xx body: an agent produced a payload that violates the contract (see `seo-rules.md` → Payload contracts). The orchestrator re-dispatches that agent with the error.
+- `hub.sh` exit 3: hub unreachable.
 - A job ends in `needs_review`: it failed the audit three times; open it in the hub dashboard, fix, re-run audit there.
 - `hub unreachable`: check `HUB_URL`, the hub's `HUB_TOKEN`, then re-run with `--resume`.
+- hreflang maps list every site language even when a localizer failed; WordPress rebuilds the map from real posts, custom sites should ignore languages that never arrived.
+- A job that ends `failed` or `needs_review` still counts toward the site's weekly cadence; there is no automatic top-up that week.

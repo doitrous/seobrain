@@ -10,5 +10,5 @@ if [ "${1:-}" = "--uninstall" ]; then rm -f "$DEST"; echo "uninstalled"; exit 0;
 mkdir -p "$HOME/Library/LaunchAgents" "$REPO/runs"
 sed "s|__REPO__|$REPO|g" "$REPO/scripts/$LABEL.plist" > "$DEST"
 launchctl bootstrap "gui/$(id -u)" "$DEST"
-launchctl print "gui/$(id -u)/$LABEL" | grep -E 'state|program' | head -3
+launchctl print "gui/$(id -u)/$LABEL" | grep -E 'state|program' | head -3 || true
 echo "installed: Friday 07:00 local → $REPO/scripts/weekly.sh (log: runs/<date>/run.log)"
