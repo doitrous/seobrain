@@ -15,25 +15,29 @@ Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` 
   `{ "runId": <RUN_ID>, "weekOf": <plan.weekOf>, "jobs": {} }`.
   For each site in `plan.sites` write `$RUN_DIR/site-<site.id>.json` containing the whole plan entry (`site`, `neededThisWeek`, `queuedTopics`, `publishedTitles`, `existingArticles`, `bannedPhrases`).
 - With `--resume`: read `state.json` and the existing site/job files; skip every job step already marked `done`.
+  With --resume, §1 is skipped for every site that already has at least one job in state.jobs (its jobs were created before the interruption). The hub also dedupes POST /api/jobs by (siteId, topicId) and by title per site, so a repeated create returns the existing job rather than a duplicate.
 - Concurrency rule for every stage below: dispatch agents in parallel, **at most 4 in flight**; wait for the batch before the next.
+
+## Agent failure policy (applies to every stage)
+An agent has failed when it ends without a RESULT: ok line or its expected output file is missing. Retry that agent once with the same inputs. On the second failure set status = "failed" and error = <the RESULT: fail reason or "no result">, save state.json, and skip the job for the rest of the run; it appears under failed in the summary. The only exception is the localizer: on its second failure set steps["localize:<LANG>"] = "failed" instead, keep status, and continue; the job still ships with its primary version and the language is listed under missingLanguages.
 
 ## 1. Topics
 For each site with `neededThisWeek > 0` (respecting `--site`):
-- Take up to `neededThisWeek` entries from `queuedTopics` (they are user-supplied; keep their `topicId`).
+- Take up to `neededThisWeek` entries from `queuedTopics` (they are user-supplied; keep their `topicId`). A queued topic's lang, market, keyword and title come from its queuedTopics entry (matched by topicId); write them to topic.json the same way as a discovered topic.
 - If still short by `k`, dispatch **topic-scout** with `RUN_DIR`, `SITE_ID`, `NEEDED=k`; read `site-<id>-topics.json`.
 - `--dry-run`: print the chosen topics per site and stop here.
-- Create jobs: for a queued topic write `{ "siteId", "topicId" }`, for a discovered one `{ "siteId", "topic": {…} }`, to `$RUN_DIR/job-tmp.json` and `JOB_ID=$(scripts/hub.sh create-job $RUN_DIR/job-tmp.json)`. Then `mkdir -p $RUN_DIR/job-$JOB_ID`, write `topic.json` there (title, keyword, market, lang, intent, source), and add to `state.jobs[JOB_ID] = { "siteId", "lang", "languages": site.languages, "steps": {}, "auditLoops": 0, "status": "planned" }`.
+- Create jobs: for a queued topic write `{ "siteId", "topicId" }`, for a discovered one `{ "siteId", "topic": {…} }`, to `$RUN_DIR/job-tmp.json` and `JOB_ID=$(scripts/hub.sh create-job $RUN_DIR/job-tmp.json)`. Then `mkdir -p $RUN_DIR/job-$JOB_ID`, write `topic.json` there (title, keyword, market, lang, intent, source), and add to `state.jobs[JOB_ID] = { "siteId", "topicId" (queued topics only), "title", "lang", "languages": site.languages, "steps": {}, "auditLoops": 0, "status": "planned" }`.
 - Save `state.json` after every job creation and after every step below.
 
 ## 2. Research
-For every job without `steps.research`: dispatch **researcher** (`RUN_DIR`, `SITE_ID`, `JOB_ID`). On `RESULT: ok` set `steps.research = "done"`. On fail, retry once; on second fail set `status = "failed"`, `error`, and skip this job for the rest of the run.
+For every job without `steps.research`: dispatch **researcher** (`RUN_DIR`, `SITE_ID`, `JOB_ID`). On `RESULT: ok` set `steps.research = "done"`. On fail apply the failure policy.
 
 ## 3. Write
-For every job with research done and no `steps.draft`: dispatch **writer** with `MODE=write`. On ok set `steps.outline`, `steps.draft`, `steps.image_brief` to `"done"`.
+For every job with research done and no `steps.draft`: dispatch **writer** with `MODE=write`. On ok set `steps.outline`, `steps.draft`, `steps.image_brief` to `"done"`. On fail apply the failure policy.
 
 ## 4. Audit loop
 For every job with a draft and no passing audit:
-- Dispatch **auditor**. Read `$RUN_DIR/job-$JOB_ID/audit.json`.
+- Dispatch **auditor**. Read `$RUN_DIR/job-$JOB_ID/audit.json`. On fail apply the failure policy.
 - If `pass`: set `steps.audit = "pass"`.
 - Else increment `auditLoops`; if `auditLoops <= 2` dispatch **writer** with `MODE=revise`, then audit again; if `auditLoops > 2` set `status = "needs_review"` and move on (the hub shows the job in `drafted` with the audit issues; Omar can fix it in the dashboard).
 
@@ -41,14 +45,15 @@ For every job with a draft and no passing audit:
 For every job with `steps.audit = "pass"` and no `steps.article`: `scripts/hub.sh article $JOB_ID $RUN_DIR/job-$JOB_ID/draft.json` then set `steps.article = "done"`.
 
 ## 6. Localize
-For every such job and every language in `languages` other than the job's `lang`: dispatch **localizer** with `LANG`. On ok set `steps["localize:<LANG>"] = "done"`. A failed localizer after one retry is recorded in `state` but does not block scheduling (the primary version still ships; the missing language is listed in the summary).
+For every such job and every language in `languages` other than the job's `lang`: dispatch **localizer** with `LANG`. On ok set `steps["localize:<LANG>"] = "done"`. On fail apply the failure policy (localizer exception).
 
 ## 7. Schedule
-For every job with `steps.article = "done"` and all localizers finished or failed: `scripts/hub.sh schedule $JOB_ID`, set `status = "scheduled"`.
+For every job with `steps.article = "done"` and every language in `languages` other than the job's `lang` has `steps["localize:<LANG>"]` equal to `"done"` or `"failed"`: `scripts/hub.sh schedule $JOB_ID`, set `status = "scheduled"`.
 
 ## 8. Finish
 Write `$RUN_DIR/summary.json`:
 `{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }] }], "jobs": <count>, "durationMinutes" }`
+`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`.
 then `scripts/hub.sh run-finish $RUN_ID $RUN_DIR/summary.json`. Print the summary as a short table.
 
 ## Rules

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Installs (or reinstalls) the Friday 07:00 launchd job for the current user. Usage: scripts/install-schedule.sh [--uninstall]
 set -euo pipefail
+case ${1:-} in ""|--uninstall) ;; *) echo "usage: $0 [--uninstall]" >&2; exit 2 ;; esac
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 LABEL=com.doitrous.seo-brain
 DEST="$HOME/Library/LaunchAgents/$LABEL.plist"

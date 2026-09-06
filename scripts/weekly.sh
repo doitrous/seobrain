@@ -7,7 +7,7 @@ DATE=$(date +%F); mkdir -p "runs/$DATE"
 ARGS="/weekly-run"; [ -f "runs/$DATE/state.json" ] && ARGS="/weekly-run --resume"
 {
   echo "=== seo-brain $(date) ==="
-  scripts/hub.sh selftest || { echo "hub unreachable"; exit 1; }
+  scripts/hub.sh selftest || { echo "hub unreachable"; echo "=== exit 1 $(date) ==="; exit 1; }
   claude --model claude-opus-4-8 -p "$ARGS" --output-format text
   echo "=== exit $? $(date) ==="
 } >> "runs/$DATE/run.log" 2>&1
