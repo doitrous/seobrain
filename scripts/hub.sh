@@ -33,15 +33,15 @@ api() { # api METHOD PATH [JSON_FILE]  -> body on stdout; exit 1 on 4xx, exit 3 
 jget() { node -pe "JSON.parse(require('fs').readFileSync(0,'utf8'))$1"; } # jget .run.id
 
 case ${1:-} in
-  plan)       api GET /api/plan ;;
+  plan)       api GET /api/plan | tee "${2:-/dev/null}" ;;
   run-start)  out=$(api POST /api/runs); jget .run.id <<<"$out" ;;
   run-finish) f=$(mktemp); node -e 'process.stdout.write(JSON.stringify({summary: JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))}))' "$3" > "$f"; api PATCH "/api/runs/$2" "$f" ;;
   create-job) out=$(api POST /api/jobs "$2"); node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync(0,'utf8')).job)" <<<"$out" ;;
   step)       f=$(mktemp); node -e 'process.stdout.write(JSON.stringify({name: process.argv[1], payload: JSON.parse(require("fs").readFileSync(process.argv[2],"utf8"))}))' "$3" "$4" > "$f"; api POST "/api/jobs/$2/steps" "$f" ;;
-  audit)      api POST "/api/jobs/$2/audit" ;;
+  audit)      api POST "/api/jobs/$2/audit" | tee "${3:-/dev/null}" ;;
   article)    api POST "/api/jobs/$2/articles" "$3" ;;
   schedule)   api POST "/api/jobs/$2/schedule" ;;
   jobs)       api GET /api/jobs ;;
   selftest)   out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
-  *) echo "usage: hub.sh plan|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB|article JOB FILE|schedule JOB|jobs|selftest (exit 1 = client error (4xx), 3 = hub unreachable)" >&2; exit 2 ;;
+  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|schedule JOB|jobs|selftest (exit 1 = client error (4xx), 3 = hub unreachable)" >&2; exit 2 ;;
 esac

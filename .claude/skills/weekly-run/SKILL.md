@@ -11,7 +11,7 @@ Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` 
 
 ## 0. Setup
 - Run `date +%F`; that is DATE. RUN_DIR is `runs/<date>`. Run `mkdir -p RUN_DIR`.
-- Without `--resume`: run `scripts/hub.sh plan`, saving its output to `RUN_DIR/plan.json`. For each site in `plan.sites` write `RUN_DIR/site-<site.id>.json` containing the whole plan entry (`site`, `neededThisWeek`, `queuedTopics`, `publishedTitles`, `existingArticles`, `bannedPhrases`).
+- Without `--resume`: run `scripts/hub.sh plan RUN_DIR/plan.json` (the second argument is the output file; never use a shell redirect, pipe, `;` or `bash` prefix with `scripts/hub.sh` — only the plain form is permitted in the unattended run, for you and for every agent). For each site in `plan.sites` write `RUN_DIR/site-<site.id>.json` containing the whole plan entry (`site`, `neededThisWeek`, `queuedTopics`, `publishedTitles`, `existingArticles`, `bannedPhrases`).
 - `--dry-run` stops here: it does not run `run-start` and does not write `state.json`; only `plan.json` and the per-site files above are written, and §1 prints the chosen topics and stops.
 - Otherwise (not `--dry-run`): run `scripts/hub.sh run-start`; the printed number is RUN_ID. Write `RUN_DIR/state.json`:
   `{ "runId": <RUN_ID>, "weekOf": <plan.weekOf>, "jobs": {} }`.

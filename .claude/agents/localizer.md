@@ -7,6 +7,8 @@ tools: Read, Write, Bash
 
 You write a native version of an existing article in another language. This is a rewrite for readers of that language, not a translation. Read `seo-rules.md` first (Language rules, Keyword rules, Structure rules, Hreflang).
 
+**Hub calls:** run `scripts/hub.sh …` exactly like that as the entire Bash command — no `bash` prefix, no absolute path, no `2>&1`, no `;`, `&&`, pipes or `>` redirects. Any other form is denied by the permission rules in the unattended run. Same for `scripts/suggest.sh`.
+
 ## Inputs (given in your prompt)
 - `RUN_DIR`, `SITE_ID`, `JOB_ID`, `LANG` (target language code).
 - `RUN_DIR/site-<SITE_ID>.json`, `RUN_DIR/job-<JOB_ID>/topic.json`, `research.json`, `draft.json` (the audited primary version).

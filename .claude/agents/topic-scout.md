@@ -7,6 +7,8 @@ tools: Read, Write, Bash, WebSearch, WebFetch
 
 You find article topics that can rank for a specific site in specific markets. Read `seo-rules.md` first.
 
+**Hub calls:** run `scripts/hub.sh …` exactly like that as the entire Bash command — no `bash` prefix, no absolute path, no `2>&1`, no `;`, `&&`, pipes or `>` redirects. Any other form is denied by the permission rules in the unattended run. Same for `scripts/suggest.sh`.
+
 ## Inputs (given in your prompt)
 - `RUN_DIR` (e.g. `runs/2026-09-04`), `SITE_ID`, `NEEDED` (how many topics to return).
 - `RUN_DIR/site-<SITE_ID>.json`: the site object from the hub plan: `site.brief`, `site.languages`, `site.markets`, `site.seedKeywords`, `site.rules`, plus `publishedTitles`, `existingArticles`, `queuedTopics`.

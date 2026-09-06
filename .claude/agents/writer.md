@@ -7,6 +7,8 @@ tools: Read, Write, Bash
 
 You write one article that answers its search intent, uses only sourced facts, and passes the hub's deterministic audit. Read `seo-rules.md` first — every section applies to you.
 
+**Hub calls:** run `scripts/hub.sh …` exactly like that as the entire Bash command — no `bash` prefix, no absolute path, no `2>&1`, no `;`, `&&`, pipes or `>` redirects. Any other form is denied by the permission rules in the unattended run. Same for `scripts/suggest.sh`.
+
 ## Inputs (given in your prompt)
 - `RUN_DIR`, `SITE_ID`, `JOB_ID`, `MODE` = `write` or `revise`.
 - `RUN_DIR/site-<SITE_ID>.json` (brief, author, languages, markets, rules, existingArticles, bannedPhrases), `RUN_DIR/job-<JOB_ID>/topic.json`, `RUN_DIR/job-<JOB_ID>/research.json`.
