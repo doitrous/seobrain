@@ -28,4 +28,12 @@ const s=log.find(r=>r.url==="/api/jobs/42/steps");
 if(!s||s.body.name!=="research"||JSON.stringify(s.body.payload)!=="{\"facts\":[]}")process.exit(1);
 if(!log.every(r=>r.auth==="Bearer tok"))process.exit(2);
 const f=log.find(r=>r.url==="/api/runs/7"); if(f.body.summary.jobs!==3)process.exit(3);'
+# environment must win over .env
+cp -r scripts "$T/scripts"
+printf 'HUB_URL=http://localhost:1\nHUB_TOKEN=wrong\n' > "$T/.env"
+[ "$(cd "$T" && HUB_URL=http://localhost:3999 HUB_TOKEN=tok scripts/hub.sh selftest)" = "2026-08-31" ] || fail "env should override .env"
+# temp file is cleaned up via trap even when the request fails (404 -> no route)
+echo '{}' > "$T/p.json"
+scripts/hub.sh step 99 research "$T/p.json" >/dev/null 2>"$T/err99" && fail "step on missing job should exit 1"
+grep -q 'no route' "$T/err99" || fail "step 99 error body missing 'no route'"
 echo "hub.test.sh: all passed"
