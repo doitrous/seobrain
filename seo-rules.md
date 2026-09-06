@@ -25,7 +25,8 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 
 ## Keyword rules
 
-- One primary keyword per article (from `topic.json.keyword`). It appears in: title, H1, first 100 words, at least one H2, meta description, slug. Never more than ~1% density; never awkward repetition.
+- One primary keyword per article (from `topic.json.keyword`). It appears in: title, H1, first 100 words, at least one H2, meta description, slug.
+- The slug is derived once from the topic keyword (ASCII) and shared by every language version. A localized version's `keyword` is the native-language term used for title/H1/H2/meta/body placement only; it never changes the slug. Never more than ~1% density; never awkward repetition.
 - 3–6 secondary keywords from research (People Also Ask, competitor headings, autocomplete) used naturally in H2/H3s and body.
 - Meta title 45–60 characters, meta description 120–160 (Arabic: 38–70 and 102–188). Meta title ≠ H1 wording exactly; it may add a hook ("2026 guide", "costs & clinics").
 
