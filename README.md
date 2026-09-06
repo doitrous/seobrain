@@ -6,6 +6,7 @@ Weekly SEO article producer. Runs in Omar's own Claude Code (Max subscription). 
 1. `cp .env.example .env` and set `HUB_URL` (e.g. `https://seo.doitrous.com`) and `HUB_TOKEN` (the hub's `HUB_TOKEN`).
 2. `scripts/hub.sh selftest` prints the current week (Monday) if the hub is reachable.
 3. `bash tests/hub.test.sh && bash tests/agents.test.sh && bash tests/skill.test.sh`.
+4. Trust the workspace once: run `claude` interactively in this directory and accept the trust dialog. Until then `claude -p` ignores `.claude/settings.json` (it prints "Ignoring N permissions.allow entries") and every tool call in the unattended run is denied.
 
 ## Run manually
 ```bash

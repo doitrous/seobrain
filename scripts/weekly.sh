@@ -12,3 +12,5 @@ ARGS="/weekly-run"; [ -f "runs/$DATE/state.json" ] && ARGS="/weekly-run --resume
   claude --model claude-opus-4-8 -p "$ARGS" --output-format text
   echo "=== exit $? $(date) ==="
 } >> "runs/$DATE/run.log" 2>&1
+grep -q 'has not been trusted' "runs/$DATE/run.log" && echo "workspace not trusted: run claude interactively here once (README → Setup 4)" >> "runs/$DATE/run.log"
+exit 0
