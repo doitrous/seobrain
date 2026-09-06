@@ -101,4 +101,4 @@ Include every language in the site's `languages` list, whether or not its locali
 Deterministic (hub): `keyword_title, keyword_h1, keyword_intro, keyword_h2 (warn), keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, paragraph_length (warn), internal_link_count, internal_link_missing, external_http, faq_count, title_duplicate, banned_phrase`.
 Judgment (auditor, severity error unless noted): `unsupported_claim` (claim with no matching fact), `medical_promise` (guarantee/outcome language), `market_missing` (no market angle), `source_count` (< 2 authoritative sources), `intent_mismatch`, `translationese` (localized text reads as a translation), `faq_generic (warn)`, `thin_section (warn)`.
 
-Each audit loop records two `audit` steps in the hub: the deterministic one from `scripts/hub.sh audit` and the auditor's combined one; that is expected.
+Expect several `audit` steps per job in the hub: the writer runs `scripts/hub.sh audit` after each draft it posts (up to three times), and each orchestrator audit loop adds the deterministic result plus the auditor's combined one. That is expected, not a bug.
