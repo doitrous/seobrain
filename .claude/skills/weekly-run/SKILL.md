@@ -15,7 +15,7 @@ Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` 
   `{ "runId": <RUN_ID>, "weekOf": <plan.weekOf>, "jobs": {} }`.
   For each site in `plan.sites` write `$RUN_DIR/site-<site.id>.json` containing the whole plan entry (`site`, `neededThisWeek`, `queuedTopics`, `publishedTitles`, `existingArticles`, `bannedPhrases`).
 - With `--resume`: read `state.json` and the existing site/job files; skip every job step already marked `done`.
-  With --resume, §1 is skipped for every site that already has at least one job in state.jobs (its jobs were created before the interruption). The hub also dedupes POST /api/jobs by (siteId, topicId) and by title per site, so a repeated create returns the existing job rather than a duplicate.
+  With `--resume`, §1 runs per site with `stillNeeded = neededThisWeek − (jobs for that site already in state.jobs)`: queued topics whose `topicId` is already in state are skipped, existing `site-<id>-topics.json` entries are reused before dispatching topic-scout again, and topic-scout is asked only for the remaining `k`. The hub also dedupes `POST /api/jobs` by (siteId, topicId) and by title per site, so a repeated create returns the existing job rather than a duplicate.
 - Concurrency rule for every stage below: dispatch agents in parallel, **at most 4 in flight**; wait for the batch before the next.
 
 ## Agent failure policy (applies to every stage)
