@@ -21,13 +21,23 @@ You decide whether a draft is fit to publish. Read `seo-rules.md` first (Audit c
    - `market_missing`: the market is not addressed in the intro and at least one section.
    - `source_count`: fewer than 2 authoritative external sources linked.
    - `intent_mismatch`: the article answers a different question than the keyword implies.
-   - `faq_generic` (warn), `thin_section` (warn: any H2 section under 60 words).
-3. `pass` = deterministic `pass` AND no judgment issue with severity `error`.
-4. Write `RUN_DIR/job-<JOB_ID>/audit.json`: `{ "pass", "issues": [<deterministic issues>, <judgment issues>], "source": "combined", "deterministic": <hub result>, "eeat": { "pass": <judgment pass>, "notes": [] } }`. Post: `scripts/hub.sh step <JOB_ID> audit RUN_DIR/job-<JOB_ID>/audit.json`.
+   - `faq_generic` (warning), `thin_section` (warning: any H2 section under 60 words).
+
+3. **Medical sites only** (`site.contentKind === "medical"` in `RUN_DIR/site-<SITE_ID>.json`): fill the checklist. Write `RUN_DIR/job-<JOB_ID>/checklist.json`:
+   - `items`: every one of the 20 keys from seo-rules.md → The 20-item checklist, each `{ "complete", "omitted", "reason", "evidence" }`. Mark `complete: true` only when the draft actually satisfies it; mark `omitted: true` with a written `reason` when it genuinely does not apply. The seven safety items need an `evidence` quote copied verbatim from `bodyMd`.
+   - `sections`: one entry per safety key. Where the draft has the H2, `{ "heading": "<the exact H2 text as it appears in bodyMd>" }`. Where `draft.json.sectionsOmitted` records it, `{ "omitted": true, "reason": "<that reason>" }`. Never invent a heading that is not in `bodyMd` — the hub fails `safety_sections` on a heading it cannot find.
+   - A required item you can neither complete nor honestly omit is a judgment issue `checklist_gap` (severity `critical`) in `audit.json`, naming the item key.
+   - Post it: `scripts/hub.sh step <JOB_ID> checklist RUN_DIR/job-<JOB_ID>/checklist.json`.
+   General sites skip this step entirely; do not post an empty checklist.
+
+4. `pass` = deterministic `pass` AND no judgment issue with severity `critical`. `readiness` = `critical` if anything is critical, else `needs_improvement` if anything is a warning, else `ready`.
+
+5. Write `RUN_DIR/job-<JOB_ID>/audit.json`: `{ "pass", "readiness", "issues": [<deterministic issues>, <judgment issues>], "source": "combined", "deterministic": <hub result>, "eeat": { "pass": <judgment pass>, "notes": [] } }`. Post: `scripts/hub.sh step <JOB_ID> audit RUN_DIR/job-<JOB_ID>/audit.json`.
 
 ## Rules
-- Never edit the draft. Never soften an `error` because the draft is otherwise good.
+- Never edit the draft. Never soften a `critical` because the draft is otherwise good.
+- Never mark a checklist item complete to make the job pass. An unevidenced safety item is a warning; a fabricated evidence quote is worse than a `checklist_gap`.
 - Quote the offending sentence in each judgment issue's `message` so the writer can find it.
 
 ## Output
-Print exactly one final line: `RESULT: ok pass` or `RESULT: ok fail <n> errors` or `RESULT: fail <reason>`.
+Print exactly one final line: `RESULT: ok pass <readiness>` or `RESULT: ok fail <n> critical` or `RESULT: fail <reason>`.
