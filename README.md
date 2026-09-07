@@ -23,7 +23,7 @@ Or interactively: `claude --model claude-opus-4-8` then type `/weekly-run`.
 Alternative when the Mac cannot be awake: a Claude Code cloud routine (`/schedule` in Claude Code) on cron `0 7 * * 5` Africa/Cairo running `/weekly-run` from this repo, with `HUB_URL`/`HUB_TOKEN` as routine environment variables. Same skill, same agents.
 
 ## What a run does
-plan → topics (queue first, then topic-scout) → jobs → researcher → writer (outline, draft, image brief) → auditor (hub deterministic audit + judgment; up to 2 revisions) → primary article → localizer per extra language → schedule → run summary. State: `runs/<date>/state.json`; per-job files under `runs/<date>/job-<id>/`.
+plan → topics (refresh queue first, then user queue, then topic-scout) → jobs → researcher → writer (outline, draft with introduction/secondary keywords/OG/references, image brief) → auditor (hub deterministic audit + judgment + the 20-item medical checklist) → primary article → localizer per extra language → schedule → run summary. The hub re-audits at the end of the review window and only then publishes and stamps the reviewer dates. State: `runs/<date>/state.json`; per-job files under `runs/<date>/job-<id>/`.
 
 ## Files
 - `.claude/skills/weekly-run/SKILL.md` — the orchestrator procedure
@@ -39,3 +39,5 @@ plan → topics (queue first, then topic-scout) → jobs → researcher → writ
 - `hub unreachable`: check `HUB_URL`, the hub's `HUB_TOKEN`, then re-run with `--resume`.
 - hreflang maps list every site language even when a localizer failed; WordPress rebuilds the map from real posts, custom sites should ignore languages that never arrived.
 - A job that ends `failed` or `needs_review` still counts toward the site's weekly cadence; there is no automatic top-up that week.
+- `create-job` returns 409 `keyword_taken`: the site already covers that keyword in that language. Not a bug — the run skips the topic and asks for a replacement.
+- A job sits in `needs_review` after its window closed: it failed the hub's publish-time audit. The job's `error` lists the failing check codes; the dashboard shows each with its fix text.

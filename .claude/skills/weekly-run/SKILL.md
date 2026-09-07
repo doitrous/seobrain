@@ -24,10 +24,13 @@ An agent has failed when it ends without a RESULT: ok line or its expected outpu
 
 ## 1. Topics
 For each site with `neededThisWeek > 0` (respecting `--site`):
-- Take up to `neededThisWeek` entries from `queuedTopics` (they are user-supplied). Each `queuedTopics[]` row has `id, title, keyword, market, lang, source`: set `topicId = queuedTopics[].id`, and take `lang`, `market`, `keyword`, `title` from that same row (matched by topicId). Set `intent` to `informational`, unless the keyword clearly signals cost or comparison — then use `commercial`. Write these to topic.json the same way as a discovered topic.
+- Take up to `neededThisWeek` entries from `queuedTopics` (they are user-supplied). Each `queuedTopics[]` row has `id, title, keyword, market, lang, source`: set `topicId = queuedTopics[].id`, and take `lang`, `market`, `keyword`, `title` from that same row (matched by topicId). Set `intent` to `informational`, unless the keyword clearly signals cost or comparison — then use `commercial`. **Take rows with `source: "refresh"` first** — the hub queued them because a published article reached its refresh date; they carry `refreshJobId`, the job being refreshed, and they are exempt from the keyword guard. Write these to topic.json the same way as a discovered topic.
 - If still short by `k`, dispatch **topic-scout** with RUN_DIR, SITE_ID, `NEEDED=k`; read `site-<id>-topics.json`.
 - `--dry-run`: print the chosen topics per site and stop here; no `run-start` was called and no `state.json` was written (see §0) — only `plan.json` exists.
-- Create jobs: for a queued topic write `{ "siteId", "topicId" }`, for a discovered one `{ "siteId", "topic": {…} }`, to `RUN_DIR/job-tmp.json`. Run `scripts/hub.sh create-job RUN_DIR/job-tmp.json`; it prints the job JSON — JOB_ID is its `id`. If the returned job's `state` is anything other than `planned`, or its `weekOf` differs from `plan.weekOf`, the hub matched an older job to this topic: do not use that job and do not attach steps to it — ask topic-scout for one replacement topic (once) instead, and note the skipped title in the summary under `skippedDuplicates`. Otherwise run `mkdir -p RUN_DIR/job-<JOB_ID>`, write `topic.json` there (title, keyword, market, lang, intent, source), and add to `state.jobs[JOB_ID] = { "siteId", "topicId" (queued topics only), "title", "lang", "languages": site.languages, "steps": {}, "auditLoops": 0, "status": "planned" }`.
+- Create jobs: for a queued topic write `{ "siteId", "topicId" }` — and when that topic's `source` is `"refresh"`, write `{ "siteId", "topicId", "refreshOf": <topic.refreshJobId> }` instead. For a discovered one write `{ "siteId", "topic": {…} }`. Write it to `RUN_DIR/job-tmp.json` and run `scripts/hub.sh create-job RUN_DIR/job-tmp.json`; it prints the job JSON — JOB_ID is its `id`.
+  - **HTTP 409 `{"error":"keyword_taken","jobId":<n>}`** means this site already has an article for that keyword and language. Detect it from the failed command's output: `scripts/hub.sh` exits **1** for every 4xx and prints two lines to **stderr** — `HTTP 409` followed by the JSON body. So the marker is exit code 1 *plus* `HTTP 409` on stderr (the body then names `keyword_taken`); exit 1 with any other `HTTP 4xx` line is the ordinary contract violation handled by the Rules. A 409 is not an agent failure: drop the topic, note its title in the summary under `skippedDuplicates`, and ask topic-scout for one replacement topic (once). Never retry the same keyword.
+  - If the returned job's `state` is anything other than `planned`, or its `weekOf` differs from `plan.weekOf`, the hub matched an older job to this topic: do not use that job and do not attach steps to it — ask topic-scout for one replacement topic (once) instead, and note the skipped title in the summary under `skippedDuplicates`.
+  - Otherwise run `mkdir -p RUN_DIR/job-<JOB_ID>`, write `topic.json` there (title, keyword, market, lang, intent, source), and add to `state.jobs[JOB_ID] = { "siteId", "topicId" (queued topics only), "title", "lang", "languages": site.languages, "refreshOf": <job id or null>, "steps": {}, "auditLoops": 0, "status": "planned" }`.
 - Save `state.json` after every job creation and after every step below.
 
 ## 2. Research
@@ -39,7 +42,8 @@ For every job with research done and no `steps.draft`: dispatch **writer** with 
 ## 4. Audit loop
 For every job with a draft and no passing audit:
 - Dispatch **auditor**. Read `RUN_DIR/job-<JOB_ID>/audit.json`. On fail apply the failure policy.
-- If `pass`: set `steps.audit = "pass"`.
+- On a medical site the auditor also writes `RUN_DIR/job-<JOB_ID>/checklist.json` and posts it as the `checklist` step. If `pass` is true but that file is missing on a medical site, re-dispatch the auditor once; the hub fails `checklist_complete` (critical) at publish time without it, so the job would sit in `needs_review` forever.
+- If `pass`: set `steps.audit = "pass"` (and `steps.checklist = "done"` on medical sites).
 - Else increment `auditLoops`; if `auditLoops <= 2` dispatch **writer** with `MODE=revise`, then audit again; if `auditLoops > 2` set `status = "needs_review"` and move on (the hub shows the job in `drafted` with the audit issues; Omar can fix it in the dashboard).
 
 ## 5. Primary article
@@ -51,6 +55,8 @@ For every such job and every language in `languages` other than the job's `lang`
 ## 7. Schedule
 For every job with `steps.article = "done"` and every language in `languages` other than the job's `lang` has `steps["localize:<LANG>"]` equal to `"done"` or `"failed"`: run `scripts/hub.sh schedule <JOB_ID>`, set `status = "scheduled"`.
 
+Scheduling is not publishing. At the end of the review window the hub re-runs the audit in publish mode; a critical failure parks the job in `needs_review` with the failing codes instead of publishing it, and Omar clears it in the dashboard. Reviewer dates are stamped by the hub at that moment, never by this run.
+
 ## 8. Finish
 Write `RUN_DIR/summary.json`:
 `{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "jobs": <count>, "durationMinutes" }`
@@ -59,6 +65,6 @@ Then run `scripts/hub.sh run-finish <RUN_ID> RUN_DIR/summary.json`. Print the su
 
 ## Rules
 - Never skip a hub post to save time; the dashboard is the record.
-- If `scripts/hub.sh` fails on a 4xx, read the error body: it is a contract violation in the agent's output (missing key, bad lang). Re-dispatch the responsible agent at most once with the error body quoted; on a second 4xx apply the failure policy. A 4xx from `create-job`, `schedule` or `run-finish` has no agent: mark the job `failed` with the body (for `run-finish`, print the error and stop). Never hand-edit article content yourself.
+- If `scripts/hub.sh` fails on a 4xx (exit code 1; stderr carries `HTTP <code>` then the body), read the error body: it is a contract violation in the agent's output (missing key, bad lang). Re-dispatch the responsible agent at most once with the error body quoted; on a second 4xx apply the failure policy. A 4xx from `create-job`, `schedule` or `run-finish` has no agent: mark the job `failed` with the body (for `run-finish`, print the error and stop). **The one exception is `HTTP 409` from `create-job`** — a `keyword_taken` collision, not a contract violation: skip the topic and ask for a replacement (§1), and do not mark anything failed. Never hand-edit article content yourself.
 - The hub is unreachable when `scripts/hub.sh` exit code 3 is returned (5xx after retries). Save `state.json` and stop with `RESULT: hub unreachable — rerun with --resume`.
 - Agent prompts are short: name the agent's inputs (RUN_DIR, SITE_ID, JOB_ID, MODE/LANG/NEEDED) and nothing else; the agent files carry the instructions.
