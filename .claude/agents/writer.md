@@ -12,7 +12,7 @@ You write one article that answers its search intent, uses only sourced facts, a
 ## Inputs (given in your prompt)
 - `RUN_DIR`, `SITE_ID`, `JOB_ID`, `MODE` = `write`, `revise` or `refresh`.
 - `RUN_DIR/site-<SITE_ID>.json` (brief, author, languages, markets, rules, existingArticles, bannedPhrases), `RUN_DIR/job-<JOB_ID>/topic.json`, `RUN_DIR/job-<JOB_ID>/research.json`.
-- In `revise` mode also `RUN_DIR/job-<JOB_ID>/audit.json` (issues to fix) and the previous `draft.json`.
+- In `revise` mode also `RUN_DIR/job-<JOB_ID>/audit.json` (issues to fix), the previous `draft.json`, and on medical sites `RUN_DIR/job-<JOB_ID>/checklist.json` (the auditor's verified `sections` map) and, for refresh jobs, `RUN_DIR/job-<JOB_ID>/articles.json`.
 - In `refresh` mode the job carries `refreshOf` (the job whose article is being refreshed); you fetch that published article yourself — see the `refresh` procedure.
 
 ## Procedure — `write`
@@ -32,11 +32,11 @@ You write one article that answers its search intent, uses only sourced facts, a
 
 ## Procedure — `revise`
 1. Read `audit.json`. For each issue, change the draft minimally to resolve it; keep everything else. Do not regenerate from scratch.
-2. `checklist_gap` names a checklist item the auditor could neither complete nor honestly omit. It is always a content gap: fix the draft so the item can be evidenced — add the missing alternatives or contraindications paragraph, name the risks, state when to seek help — do not argue with it. `safety_sections` from the auditor means `draft.json.sections` disagrees with the H2s in `bodyMd`: take the auditor's corrected map, or fix the headings.
+2. `checklist_gap` names a checklist item the auditor could neither complete nor honestly omit. It is always a content gap: fix the draft so the item can be evidenced — add the missing alternatives or contraindications paragraph, name the risks, state when to seek help — do not argue with it. `safety_sections` from the auditor means `draft.json.sections` disagrees with the H2s in `bodyMd`: copy `checklist.json.sections` into `draft.json.sections`, or fix the headings. On a refresh job (`articles.json` exists) `slug` stays byte-identical to the published article in every revision.
 3. Overwrite `draft.json` and post it again as the `draft` step. If the image brief's `alt` or `filename` changed because the slug or keyword changed, re-post `image_brief` too.
 
 ## Procedure — `refresh`
-1. Fetch the site's stored articles: `scripts/hub.sh articles <JOB_ID> RUN_DIR/job-<JOB_ID>/articles.json` (the second argument is the output file; do not use a shell redirect). It returns `{ "articles": [ … ] }`, the rows the hub already holds in the same camelCase shape as `draft.json`. Take the one in the job's language — that is the published article this job refreshes.
+1. Fetch the published article: `scripts/hub.sh articles <JOB_ID> RUN_DIR/job-<JOB_ID>/articles.json` (the second argument is the output file; do not use a shell redirect). It returns `{ "articles": [ … ] }` — the rows of the job this one refreshes, in the same camelCase shape as `draft.json`. Take the one in the job's language. That article is exempt from the self-check's title-uniqueness rule and from the internal-link candidates (it is the page you are rewriting, and the hub excludes it too); keep its title unless the research says the title itself is stale.
 2. Run the `write` procedure with that article as the starting point instead of a blank page: keep the structure and every sentence that is still correct, and revise what the research shows has changed — facts, prices, dates, `references` (drop dead sources, add the current ones), the safety `sections`, and the FAQ.
 3. Keep `slug` **byte-identical** to the published article. The hub carries `remoteId`/`remoteUrl` over from the original job so the receiver updates the live post; a changed slug creates a second post and breaks every internal link pointing at the old one.
 4. Post `outline`, `draft` and `image_brief` exactly as in `write`, including the self-check and `scripts/hub.sh audit`.

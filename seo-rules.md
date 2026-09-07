@@ -77,7 +77,7 @@ The auditor fills every one of these on medical sites. All 20 are required: each
 | 1 | `named_author` | The site's author is named in the byline or closing section. | — |
 | 2 | `named_medical_reviewer` | `site.reviewer.name` appears in the closing "reviewed by" sentence. | — |
 | 3 | `reviewer_qualifications` | The reviewer's credentials appear next to their name. | — |
-| 4 | `publication_dates` | The article carries a publication date in `schemaJsonld`. | — |
+| 4 | `publication_dates` | Pipeline fact: the hub stamps `published_at`, `medical_reviewed_at` and `seo_reviewed_at` at publish time and writes them into the schema. Evidence names that mechanism. | — |
 | 5 | `original_patient_focused` | Written for a patient, not lifted from a clinic brochure. | — |
 | 6 | `education_not_diagnosis` | **safety** — the article educates and never diagnoses. | the sentence that tells the reader to see a clinician |
 | 7 | `indications_and_suitability` | **safety** — who the procedure suits is stated. | the "who may benefit" sentence |
@@ -91,7 +91,7 @@ The auditor fills every one of these on medical sites. All 20 are required: each
 | 15 | `natural_language` | Reads natively in its language; no translationese. | — |
 | 16 | `links_images_metadata` | Internal links resolve, image alt is set, meta fields are filled. | — |
 | 17 | `doctor_approval` | Content is consistent with the site's medical rules. | — |
-| 18 | `seo_approval` | The deterministic audit has no critical failures. | — |
+| 18 | `seo_approval` | Pipeline fact: the hub re-runs the audit as a publish gate and refuses on any critical failure. Evidence names that mechanism. | — |
 | 19 | `translation_status` | Every language in `site.languages` is drafted or has a recorded failure. | — |
 | 20 | `publication_approval` | Nothing in the article blocks publication. | — |
 

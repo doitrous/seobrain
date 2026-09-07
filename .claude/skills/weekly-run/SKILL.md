@@ -42,8 +42,8 @@ For every job with research done and no `steps.draft`: dispatch **writer** with 
 ## 4. Audit loop
 For every job with a draft and no passing audit:
 - Dispatch **auditor**. Read `RUN_DIR/job-<JOB_ID>/audit.json`. On fail apply the failure policy.
-- On a medical site the auditor posts the `checklist` step before running its own audit, and its RESULT line ends in `checklist: posted` (`checklist: n/a` on general sites). On `checklist: failed`, re-dispatch the auditor once; if it reports `failed` again, treat it as an audit failure (same loop as below). Gate on that word, not on the local file. The hub fails `checklist_complete` (critical) at publish time without the step, so the job would sit in `needs_review` forever. A `checklist_gap` issue from the auditor is critical and therefore also a failed audit.
-- If `pass`: set `steps.audit = "pass"` (and `steps.checklist = "done"` on medical sites).
+- On a medical site the auditor posts the `checklist` step before running its own audit, and its RESULT line ends in `checklist: posted` (`checklist: n/a` on general sites). On a medical site anything other than `checklist: posted` (including `failed`, `n/a` or a missing marker) means re-dispatch the auditor once; if it still does not report `posted`, treat it as an audit failure (same loop as below). Gate on that word, not on the local file. The hub fails `checklist_complete` (critical) at publish time without the step, so the job would sit in `needs_review` forever. A `checklist_gap` issue from the auditor is critical and therefore also a failed audit.
+- If `pass`: set `steps.audit = "pass"` (and `steps.checklist = "done"` on medical sites, only once `checklist: posted` was seen).
 - Else increment `auditLoops`; if `auditLoops <= 2` dispatch **writer** with `MODE=revise`, then audit again; if `auditLoops > 2` set `status = "needs_review"` and move on (the hub shows the job in `drafted` with the audit issues; Omar can fix it in the dashboard).
 
 ## 5. Primary article
@@ -60,7 +60,7 @@ Scheduling is not publishing. At the end of the review window the hub re-runs th
 ## 8. Finish
 Write `RUN_DIR/summary.json`:
 `{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "jobs": <count>, "durationMinutes" }`
-`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `skippedDuplicates` from the replacement-topic titles skipped in §1.
+`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement).
 Then run `scripts/hub.sh run-finish <RUN_ID> RUN_DIR/summary.json`. Print the summary as a short table.
 
 ## Rules
