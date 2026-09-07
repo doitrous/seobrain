@@ -9,11 +9,11 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "rationale" }`
 - `research.json` (researcher): `{ "searchIntent", "facts": [{ "claim", "source_url", "quote" }], "competitorHeadings": [{ "url", "headings": [] }], "peopleAlsoAsk": [], "gaps": [], "localAngle" }`
 - `outline.json` (writer): `{ "h1", "sections": [{ "h2", "h3s": [], "purpose" }], "targetWords", "primaryKeyword", "secondaryKeywords": [], "faqQuestions": [], "internalLinks": [{ "title", "slug" }] }`
-- `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sectionsOmitted": { "<safety key>": "<reason>" }` for any of the four safety sections the article legitimately does not have.
+- `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sectionsOmitted": { "<safety key>": "<reason>" }` for any of the four safety sections the article legitimately does not have — a draft-only key the auditor reads; the hub ignores it. The hub's own field is `"sections": { "<safety key>": { "heading" } | { "omitted": true, "reason" } }`, which the auditor produces in `checklist.json` and the hub copies onto the primary-language article.
 - `image_brief.json` (writer): `{ "prompt", "search_terms": [], "alt", "filename" }`
 - `checklist.json` (auditor, medical sites only): `{ "items": { "<item key>": { "complete": true|false, "omitted": true|false, "reason": "…", "evidence": "quoted sentence from the draft" } }, "sections": { "who_may_benefit": { "heading": "<exact H2 text>" } | { "omitted": true, "reason": "…" }, … } }`
 - `audit.json` (auditor): `{ "pass", "readiness": "critical|needs_improvement|ready", "issues": [{ "code", "severity": "critical|warning", "message" }], "source": "combined", "deterministic": <hub result>, "eeat": { "pass", "notes": [] } }`
-- `article-<lang>.json` (localizer): same shape as `draft.json` with that `lang`.
+- `article-<lang>.json` (localizer): same shape as `draft.json` with that `lang`. Medical sites: also carry `"sections"` — the auditor's `checklist.json.sections` with each `heading` re-pointed to the translated H2 text in this language's `bodyMd` (omitted entries copied as they are). Without it the hub cannot verify the translated safety sections.
 
 ## Writing rules
 
@@ -66,7 +66,7 @@ Everything in this section applies only when the site file says `"contentKind": 
 | `risks_limitations` | Risks and limitations | المخاطر والقيود |
 | `when_to_seek_help` | When to seek medical help | متى تطلب المساعدة الطبية |
 
-If a section genuinely does not apply, record it in `draft.json.sectionsOmitted` as `{ "<key>": "<reason>" }` with a real reason ("this is a cost comparison, not a procedure page"), never a blank string. The auditor turns that into `sections["<key>"] = { "omitted": true, "reason": "…" }`. A missing section with no reason is a critical `safety_sections` failure.
+If a section genuinely does not apply, record it in `draft.json.sectionsOmitted` as `{ "<key>": "<reason>" }` with a real reason ("this is a cost comparison, not a procedure page"), never a blank string. The auditor turns that into `sections["<key>"] = { "omitted": true, "reason": "…" }` in `checklist.json` (`sectionsOmitted` itself never reaches the hub's article schema). A missing section with no reason is a critical `safety_sections` failure.
 
 ### The 20-item checklist
 
