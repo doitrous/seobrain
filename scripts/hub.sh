@@ -39,9 +39,10 @@ case ${1:-} in
   create-job) out=$(api POST /api/jobs "$2"); node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync(0,'utf8')).job)" <<<"$out" ;;
   step)       f=$(mktemp); node -e 'process.stdout.write(JSON.stringify({name: process.argv[1], payload: JSON.parse(require("fs").readFileSync(process.argv[2],"utf8"))}))' "$3" "$4" > "$f"; api POST "/api/jobs/$2/steps" "$f" ;;
   audit)      api POST "/api/jobs/$2/audit" | tee "${3:-/dev/null}" ;;
+  articles)   api GET "/api/jobs/$2/articles" | tee "${3:-/dev/null}" ;;
   article)    api POST "/api/jobs/$2/articles" "$3" ;;
   schedule)   api POST "/api/jobs/$2/schedule" ;;
   jobs)       api GET /api/jobs ;;
   selftest)   out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
-  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|schedule JOB|jobs|selftest (exit 1 = client error (4xx), 3 = hub unreachable)" >&2; exit 2 ;;
+  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|selftest (exit 1 = client error (4xx), 3 = hub unreachable)" >&2; exit 2 ;;
 esac

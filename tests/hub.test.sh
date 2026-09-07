@@ -26,6 +26,8 @@ echo '{"lang":"en","title":"T","slug":"t"}' > "$T/article.json"; scripts/hub.sh 
 echo '{"lang":"en","title":"T"}' > "$T/article-bad.json"
 scripts/hub.sh article 42 "$T/article-bad.json" >/dev/null 2>"$T/errart" && fail "article missing slug should exit 1"
 grep -q 'HTTP 400' "$T/errart" || fail "article missing slug error missing HTTP 400"
+scripts/hub.sh articles 42 | grep -q '"articles"' || fail articles
+scripts/hub.sh articles 42 "$T/articles.json" >/dev/null && grep -q '"slug":"t"' "$T/articles.json" || fail "articles OUTFILE"
 scripts/hub.sh schedule 42 | grep -q scheduled || fail schedule
 scripts/hub.sh schedule 99 >/dev/null 2>"$T/err" && fail "4xx should exit 1"; grep -q 'not found' "$T/err" || fail "4xx body to stderr"
 grep -q 'HTTP 404' "$T/err" || fail "4xx HTTP line missing"

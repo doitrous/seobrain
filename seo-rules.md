@@ -9,11 +9,11 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "rationale" }`
 - `research.json` (researcher): `{ "searchIntent", "facts": [{ "claim", "source_url", "quote" }], "competitorHeadings": [{ "url", "headings": [] }], "peopleAlsoAsk": [], "gaps": [], "localAngle" }`
 - `outline.json` (writer): `{ "h1", "sections": [{ "h2", "h3s": [], "purpose" }], "targetWords", "primaryKeyword", "secondaryKeywords": [], "faqQuestions": [], "internalLinks": [{ "title", "slug" }] }`
-- `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sectionsOmitted": { "<safety key>": "<reason>" }` for any of the four safety sections the article legitimately does not have — a draft-only key the auditor reads; the hub ignores it. The hub's own field is `"sections": { "<safety key>": { "heading" } | { "omitted": true, "reason" } }`, which the auditor produces in `checklist.json` and the hub copies onto the primary-language article.
+- `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sections": { "<safety key>": { "heading": "<the exact H2 text in bodyMd>" } | { "omitted": true, "reason": "…" } }`, one entry for each of the four safety keys. The **writer** produces it: the hub reads `sections` from the `draft` step when it audits, and stores it on the article when the draft is posted as the primary article. The auditor verifies that map against `bodyMd` and copies the verified version into `checklist.json.sections`, which the hub uses when the article payload carries none.
 - `image_brief.json` (writer): `{ "prompt", "search_terms": [], "alt", "filename" }`
 - `checklist.json` (auditor, medical sites only): `{ "items": { "<item key>": { "complete": true|false, "omitted": true|false, "reason": "…", "evidence": "quoted sentence from the draft" } }, "sections": { "who_may_benefit": { "heading": "<exact H2 text>" } | { "omitted": true, "reason": "…" }, … } }`
 - `audit.json` (auditor): `{ "pass", "readiness": "critical|needs_improvement|ready", "issues": [{ "code", "severity": "critical|warning", "message" }], "source": "combined", "deterministic": <hub result>, "eeat": { "pass", "notes": [] } }`
-- `article-<lang>.json` (localizer): same shape as `draft.json` with that `lang`. Medical sites: also carry `"sections"` — the auditor's `checklist.json.sections` with each `heading` re-pointed to the translated H2 text in this language's `bodyMd` (omitted entries copied as they are). Without it the hub cannot verify the translated safety sections.
+- `article-<lang>.json` (localizer): same shape as `draft.json` with that `lang`. Medical sites: also carry `"sections"` — the auditor's `checklist.json.sections` (falling back to `draft.json.sections` when the job has no checklist) with each `heading` re-pointed to the translated H2 text in this language's `bodyMd` (omitted entries copied as they are). Without it the hub cannot verify the translated safety sections.
 
 ## Writing rules
 
@@ -30,7 +30,7 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - The hub checks keyword placement as a contiguous phrase, ignoring punctuation and English function words (a, an, the, in, on, at, for, of, to, and, or, with, from, by, vs). So the keyword `hair transplant egypt uk patients` is satisfied by "Hair transplant in Egypt for UK patients" but not by "hair transplant for patients from the UK in Egypt". Topic-scout must choose keywords that read naturally as one phrase; writers must keep that word order wherever the keyword is required.
 - The slug is derived once from the topic keyword (ASCII) and shared by every language version. A localized version's `keyword` is the native-language term used for title/H1/H2/meta/body placement only; it never changes the slug. Keep primary-keyword density **at or under 4%** of the body words — the hub warns on `keyword_stuffing` above that; never awkward repetition.
 - 3–6 secondary keywords from research (People Also Ask, competitor headings, autocomplete) used naturally in H2/H3s and body.
-- Meta title 45–60 characters, meta description 120–160 (Arabic: 38–70 and 102–188). Meta title ≠ H1 wording exactly; it may add a hook ("2026 guide", "costs & clinics").
+- Meta title 45–60 characters (Arabic: 39–70), meta description 120–160 (Arabic: 102–188). Meta title ≠ H1 wording exactly; it may add a hook ("2026 guide", "costs & clinics").
 
 ## Search intent
 
@@ -42,7 +42,7 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 | `commercial` | `commercial_investigation` |
 | `transactional` | `booking_transactional` |
 
-Use `local` when the query is "near me" / a city-scoped service search, and `navigational` when the reader is looking for a specific named brand or page. Never invent a sixth value.
+The topic-scout's `intent` is advisory: the writer sets `local` when the keyword names a city, area or clinic, and `navigational` when it names a brand or a specific page; otherwise it uses the mapping above. Never invent a sixth value.
 
 ## Secondary keywords, OG and references
 
@@ -66,7 +66,7 @@ Everything in this section applies only when the site file says `"contentKind": 
 | `risks_limitations` | Risks and limitations | المخاطر والقيود |
 | `when_to_seek_help` | When to seek medical help | متى تطلب المساعدة الطبية |
 
-If a section genuinely does not apply, record it in `draft.json.sectionsOmitted` as `{ "<key>": "<reason>" }` with a real reason ("this is a cost comparison, not a procedure page"), never a blank string. The auditor turns that into `sections["<key>"] = { "omitted": true, "reason": "…" }` in `checklist.json` (`sectionsOmitted` itself never reaches the hub's article schema). A missing section with no reason is a critical `safety_sections` failure.
+The writer records all four in `draft.json.sections`: `{ "<key>": { "heading": "<the exact H2 text in bodyMd>" } }`, or `{ "<key>": { "omitted": true, "reason": "…" } }` with a real reason ("this is a cost comparison, not a procedure page"), never a blank string, for a section that genuinely does not apply. The auditor verifies every `heading` against the H2s in `bodyMd`, corrects the map, and copies it into `checklist.json.sections`. A heading the hub cannot find in `bodyMd`, and a missing section with no reason, are both critical `safety_sections` failures.
 
 ### The 20-item checklist
 
@@ -95,7 +95,9 @@ The auditor fills every one of these on medical sites. All 20 are required: each
 | 19 | `translation_status` | Every language in `site.languages` is drafted or has a recorded failure. | — |
 | 20 | `publication_approval` | Nothing in the article blocks publication. | — |
 
-An item you cannot honestly mark complete and cannot honestly omit is a judgment error `checklist_gap` in `audit.json` — do not guess.
+Five of the 20 are evidenced by the pipeline itself, not by the text of the draft: `publication_dates`, `translation_status`, `doctor_approval`, `seo_approval` and `publication_approval`. The hub stamps the reviewer and publication dates and publishes at the close of the review window, and the localizer produces the other languages. The auditor marks these five `complete` with an `evidence` line naming that mechanism, and never raises `checklist_gap` for them.
+
+Any other item you cannot honestly mark complete and cannot honestly omit is a judgment error `checklist_gap` in `audit.json` — do not guess. `checklist_gap` is therefore only ever about a content item, which the writer's `revise` pass can fix by adding what the item needs.
 
 ### Medical schema
 
@@ -165,7 +167,7 @@ Medical sites (`site.contentKind === "medical"` in the site file — never infer
 { "en": "/blog/en/{{slug}}", "ar": "/blog/ar/{{slug}}", "x-default": "/blog/en/{{slug}}" }
 ```
 
-List **only the languages that will actually ship** for this article — the ones this run drafts or localizes. The hub warns on `hreflang_reciprocal` for any language in the map with no stored article, and at publish time it trims the map to the languages it is really sending. Never pre-list a language whose version does not exist yet; `x-default` must point at one of the languages you listed. Region codes (`ar-SA`) come in phase 4.
+List **the site's planned languages** for this article — every language this run intends to draft or localize. The hub trims the map to the languages that actually shipped before it publishes, so a version that failed drops out there and never here. `x-default` must point at one of the languages you listed. At draft time the hub warns `hreflang_reciprocal` for every language that has no stored article yet; while the localizers are still running that warning is expected and it never blocks. Region codes (`ar-SA`) come in phase 4.
 
 ## Audit codes
 
@@ -175,11 +177,13 @@ Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_ti
 Deterministic (hub), warning: `keyword_h2, paragraph_length, keyword_stuffing, meta_description_duplicate, intro_length, secondary_keywords_used, og_fields, hreflang_reciprocal, cta_present`.
 Deterministic, medical sites only — critical: `references_count, safety_sections, reviewer_present, checklist_complete`; warning: `references_in_body, checklist_safety_evidence`.
 
-Judgment (auditor, severity `critical` unless noted): `unsupported_claim` (claim with no matching fact), `medical_promise` (guarantee/outcome language), `market_missing` (no market angle), `source_count` (< 2 authoritative sources), `intent_mismatch`, `checklist_gap` (a required checklist item that can be neither completed nor omitted honestly), `translationese` (localized text reads as a translation), `faq_generic` (warning), `thin_section` (warning).
+Judgment (auditor, severity `critical` unless noted): `unsupported_claim` (claim with no matching fact), `medical_promise` (guarantee/outcome language), `market_missing` (no market angle), `source_count` (< 2 authoritative sources), `intent_mismatch`, `checklist_gap` (a required content checklist item that can be neither completed nor omitted honestly), `translationese` (localized text reads as a translation), `faq_generic` (warning), `thin_section` (warning).
 
 `keyword_intro` no longer exists — the keyword requirement moved from "first 100 words" to the `introduction` field as `intro_keyword`.
 
 Expect several `audit` steps per job in the hub: the writer runs `scripts/hub.sh audit` after each draft it posts (up to three times), and each orchestrator audit loop adds the deterministic result plus the auditor's combined one. That is expected, not a bug.
+
+On medical sites the writer's own audits run before any `checklist` step exists, so they always carry `checklist_complete` (critical) and may carry `checklist_safety_evidence`; the writer ignores those two codes because the auditor owns them. The auditor posts the `checklist` step **before** it runs `scripts/hub.sh audit`, so its own audit sees the checklist and only reports real gaps.
 
 ## Keyword collisions
 
@@ -187,4 +191,4 @@ One primary keyword per language per site. `scripts/hub.sh create-job` returns *
 
 ## Refresh jobs
 
-The hub queues a topic with `"source": "refresh"` and `"refreshJobId": <job id>` when a published article reaches `planned_update_at` (`published_at + site.refreshMonths`). A refresh topic is exempt from the keyword guard on purpose — the job re-uses the original keyword and slug and republishes through `adapter.update`. When a queued topic has `source: "refresh"`, create the job with `{"siteId", "topicId", "refreshOf": <topic.refreshJobId>}` and tell the writer to revise the published article rather than write a new one.
+The hub queues a topic with `"source": "refresh"` and `"refreshJobId": <job id>` when a published article reaches `planned_update_at` (`published_at + site.refreshMonths`). A refresh topic is exempt from the keyword guard on purpose — the job re-uses the original keyword and slug and republishes through `adapter.update`. When a queued topic has `source: "refresh"`, create the job with `{"siteId", "topicId", "refreshOf": <topic.refreshJobId>}` and dispatch the writer with `MODE=refresh`: it fetches the published article with `scripts/hub.sh articles <JOB_ID> <FILE>` and revises that article against the research — updated facts, dates, references and safety sections — instead of writing a new one. `slug` stays byte-identical to the published article: the hub carries `remoteId`/`remoteUrl` over from the original job so the receiver updates the live post, and a changed slug would create a second post and break every internal link pointing at the old one.

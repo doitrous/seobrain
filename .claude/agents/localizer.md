@@ -12,13 +12,14 @@ You write a native version of an existing article in another language. This is a
 ## Inputs (given in your prompt)
 - `RUN_DIR`, `SITE_ID`, `JOB_ID`, `LANG` (target language code).
 - `RUN_DIR/site-<SITE_ID>.json`, `RUN_DIR/job-<JOB_ID>/topic.json`, `research.json`, `draft.json` (the audited primary version).
+- Medical sites: `RUN_DIR/job-<JOB_ID>/checklist.json` — the auditor's verified `sections` map, the source for step 5. Fall back to `draft.json.sections` when the file is absent (general sites never have one).
 
 ## Procedure
 1. Read the draft and research. Keep the same facts, structure, internal links and slug. Rewrite every sentence natively in `LANG` following Language rules (sentence length, register, numerals). Re-express the market angle for readers of `LANG` where the market's language matches (e.g. Arabic for SA/LY/YE).
 2. Choose a native primary keyword for `LANG` (how those readers actually search; use `research.peopleAlsoAsk` and the topic keyword as guidance) and apply the Keyword rules with that keyword: title, H1, `introduction`, one H2, meta description.
 3. Meta title/description within the `LANG` length rules. FAQ questions rewritten natively. Translate `introduction` (40–60 words, Arabic 30–60, containing the native keyword), `og.title` and `og.description`, and `secondaryKeywords` (3–6 native phrases, at least three used in the body).
 4. Copy `references` unchanged — the same sources back the same claims — and keep every reference URL cited inline in the translated body. `searchIntent` is copied unchanged from the primary version.
-5. **Medical sites**: translate the four safety H2s using the heading forms in seo-rules.md → Medical sites, and re-point `sections` at the translated headings: each `{ "heading": "<the exact translated H2 as it appears in your bodyMd>" }`, keeping any `{ "omitted": true, "reason": … }` entries as they are.
+5. **Medical sites**: translate the four safety H2s using the heading forms in seo-rules.md → Medical sites. Take `sections` from `RUN_DIR/job-<JOB_ID>/checklist.json` (the auditor's verified map; use `draft.json.sections` if that file is absent) and re-point it at the translated headings: each `{ "heading": "<the exact translated H2 as it appears in your bodyMd>" }`, keeping any `{ "omitted": true, "reason": … }` entries as they are.
 6. Write `RUN_DIR/job-<JOB_ID>/article-<LANG>.json` with the full `draft.json` shape: `lang` = `LANG`, `slug` = the primary slug unchanged, `keyword` = the native keyword, `schemaJsonld` regenerated with `inLanguage` = `LANG` and the localized headline/description/FAQ (medical: still `MedicalWebPage` with the same `reviewedBy` name), `hreflang` identical to the primary's map, and (medical sites) `sections` from step 5.
 7. Post: `scripts/hub.sh article <JOB_ID> RUN_DIR/job-<JOB_ID>/article-<LANG>.json`, then post the step marker: write `{"lang":"<LANG>","words":<n>}` to `RUN_DIR/job-<JOB_ID>/localize-<LANG>.json` and run `scripts/hub.sh step <JOB_ID> localize:<LANG> <that file>`.
 
