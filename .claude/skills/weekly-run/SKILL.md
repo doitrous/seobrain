@@ -42,7 +42,7 @@ For every job with research done and no `steps.draft`: dispatch **writer** with 
 ## 4. Audit loop
 For every job with a draft and no passing audit:
 - Dispatch **auditor**. Read `RUN_DIR/job-<JOB_ID>/audit.json`. On fail apply the failure policy.
-- On a medical site the auditor also writes `RUN_DIR/job-<JOB_ID>/checklist.json` and posts it as the `checklist` step. If `pass` is true but that file is missing on a medical site, re-dispatch the auditor once; the hub fails `checklist_complete` (critical) at publish time without it, so the job would sit in `needs_review` forever.
+- On a medical site the auditor also writes `RUN_DIR/job-<JOB_ID>/checklist.json` and posts it as the `checklist` step. If `pass` is true but that file is missing on a medical site, re-dispatch the auditor once; if it is still missing, treat it as an audit failure (same loop as below). The hub fails `checklist_complete` (critical) at publish time without it, so the job would sit in `needs_review` forever. A `checklist_gap` issue from the auditor is critical and therefore also a failed audit.
 - If `pass`: set `steps.audit = "pass"` (and `steps.checklist = "done"` on medical sites).
 - Else increment `auditLoops`; if `auditLoops <= 2` dispatch **writer** with `MODE=revise`, then audit again; if `auditLoops > 2` set `status = "needs_review"` and move on (the hub shows the job in `drafted` with the audit issues; Omar can fix it in the dashboard).
 
