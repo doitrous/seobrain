@@ -9,14 +9,15 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "rationale" }`
 - `research.json` (researcher): `{ "searchIntent", "facts": [{ "claim", "source_url", "quote" }], "competitorHeadings": [{ "url", "headings": [] }], "peopleAlsoAsk": [], "gaps": [], "localAngle" }`
 - `outline.json` (writer): `{ "h1", "sections": [{ "h2", "h3s": [], "purpose" }], "targetWords", "primaryKeyword", "secondaryKeywords": [], "faqQuestions": [], "internalLinks": [{ "title", "slug" }] }`
-- `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`
+- `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sectionsOmitted": { "<safety key>": "<reason>" }` for any of the four safety sections the article legitimately does not have.
 - `image_brief.json` (writer): `{ "prompt", "search_terms": [], "alt", "filename" }`
-- `audit.json` (auditor): `{ "pass", "issues": [{ "code", "severity": "error|warn", "message" }], "source": "combined", "deterministic": <hub result>, "eeat": { "pass", "notes": [] } }`
+- `checklist.json` (auditor, medical sites only): `{ "items": { "<item key>": { "complete": true|false, "omitted": true|false, "reason": "…", "evidence": "quoted sentence from the draft" } }, "sections": { "who_may_benefit": { "heading": "<exact H2 text>" } | { "omitted": true, "reason": "…" }, … } }`
+- `audit.json` (auditor): `{ "pass", "readiness": "critical|needs_improvement|ready", "issues": [{ "code", "severity": "critical|warning", "message" }], "source": "combined", "deterministic": <hub result>, "eeat": { "pass", "notes": [] } }`
 - `article-<lang>.json` (localizer): same shape as `draft.json` with that `lang`.
 
 ## Writing rules
 
-- Answer the search intent in the first paragraph (40–60 words), then expand. The first paragraph must contain the primary keyword naturally.
+- `introduction` is a separate field, not the first paragraph of `bodyMd`. Write it as 40–60 words (Arabic 30–60) that answer the search intent, contain the primary keyword in the same word order, and read as the article's opening. `bodyMd` still opens with a paragraph after the H1 — the introduction field is what the site renders as the lede and what the hub falls back to for `meta_description` and the OG description.
 - Every factual, numeric, medical, legal, price, or travel claim must trace to a `facts[]` entry from `research.json`. If no fact supports it, do not write it. Cite sources inline as markdown links on the claim.
 - Concrete over generic: named clinics, districts, prices with currency and year, procedure names, durations. No filler ("in today's fast-paced world").
 - Paragraphs: 2–4 sentences. Use H2 every 150–300 words. Bulleted lists for steps, options, checklists. One comparison table where two or more options are compared.
@@ -25,11 +26,80 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 
 ## Keyword rules
 
-- One primary keyword per article (from `topic.json.keyword`). It appears in: title, H1, first 100 words, at least one H2, meta description, slug.
+- One primary keyword per article (from `topic.json.keyword`). It appears in: title, H1, the `introduction` field, at least one H2, meta description, slug. The old "first 100 words of the body" rule is gone — the hub checks the keyword against `introduction` (`intro_keyword`, critical), not the opening of `bodyMd`.
 - The hub checks keyword placement as a contiguous phrase, ignoring punctuation and English function words (a, an, the, in, on, at, for, of, to, and, or, with, from, by, vs). So the keyword `hair transplant egypt uk patients` is satisfied by "Hair transplant in Egypt for UK patients" but not by "hair transplant for patients from the UK in Egypt". Topic-scout must choose keywords that read naturally as one phrase; writers must keep that word order wherever the keyword is required.
-- The slug is derived once from the topic keyword (ASCII) and shared by every language version. A localized version's `keyword` is the native-language term used for title/H1/H2/meta/body placement only; it never changes the slug. Never more than ~1% density; never awkward repetition.
+- The slug is derived once from the topic keyword (ASCII) and shared by every language version. A localized version's `keyword` is the native-language term used for title/H1/H2/meta/body placement only; it never changes the slug. Keep primary-keyword density **at or under 4%** of the body words — the hub warns on `keyword_stuffing` above that; never awkward repetition.
 - 3–6 secondary keywords from research (People Also Ask, competitor headings, autocomplete) used naturally in H2/H3s and body.
 - Meta title 45–60 characters, meta description 120–160 (Arabic: 38–70 and 102–188). Meta title ≠ H1 wording exactly; it may add a hook ("2026 guide", "costs & clinics").
+
+## Search intent
+
+`searchIntent` on every article is one of the five Aspects values. Map the topic's `intent` like this:
+
+| `topic.json.intent` | `searchIntent` on the article |
+|---|---|
+| `informational` | `informational` |
+| `commercial` | `commercial_investigation` |
+| `transactional` | `booking_transactional` |
+
+Use `local` when the query is "near me" / a city-scoped service search, and `navigational` when the reader is looking for a specific named brand or page. Never invent a sixth value.
+
+## Secondary keywords, OG and references
+
+- `secondaryKeywords`: 3–6 phrases from research (People Also Ask, competitor headings, autocomplete). At least three must actually appear in `bodyMd` — the hub warns on `secondary_keywords_used` otherwise.
+- `og.title` and `og.description` are both required and never empty. Title ≤ 60 characters, description 100–160; they may differ from the meta pair to read better as a social card.
+- `references`: every source URL you cited in `bodyMd` from `research.json.facts[]`, as `{ "title", "url", "publisher", "date" }`. `title` and `url` are required, `publisher` and `date` are filled when research has them. Medical sites need **at least 2**, every URL **https**, and every URL must also appear inline in `bodyMd`.
+- `cta`: the closing section must contain `site.cta.text` verbatim, or a markdown link to `site.cta.url`. Do not invent a CTA — use the site's.
+
+## Medical sites (`site.contentKind === "medical"`)
+
+Everything in this section applies only when the site file says `"contentKind": "medical"`. Never guess from the brief or the rules text.
+
+### The four safety sections
+
+`bodyMd` must contain an H2 for each of these, using one of the listed heading forms (or a natural equivalent in the article's language):
+
+| key | English H2 | Arabic H2 |
+|---|---|---|
+| `who_may_benefit` | Who may benefit | من قد يستفيد |
+| `who_may_not_be_suitable` | Who may not be suitable | من قد لا يكون مناسبًا |
+| `risks_limitations` | Risks and limitations | المخاطر والقيود |
+| `when_to_seek_help` | When to seek medical help | متى تطلب المساعدة الطبية |
+
+If a section genuinely does not apply, record it in `draft.json.sectionsOmitted` as `{ "<key>": "<reason>" }` with a real reason ("this is a cost comparison, not a procedure page"), never a blank string. The auditor turns that into `sections["<key>"] = { "omitted": true, "reason": "…" }`. A missing section with no reason is a critical `safety_sections` failure.
+
+### The 20-item checklist
+
+The auditor fills every one of these on medical sites. All 20 are required: each must be `complete: true`, or `omitted: true` with a non-blank `reason`. The seven marked **safety** additionally need an `evidence` quote — a sentence copied verbatim from the draft that proves it.
+
+| # | key | what "complete" means | evidence |
+|---|---|---|---|
+| 1 | `named_author` | The site's author is named in the byline or closing section. | — |
+| 2 | `named_medical_reviewer` | `site.reviewer.name` appears in the closing "reviewed by" sentence. | — |
+| 3 | `reviewer_qualifications` | The reviewer's credentials appear next to their name. | — |
+| 4 | `publication_dates` | The article carries a publication date in `schemaJsonld`. | — |
+| 5 | `original_patient_focused` | Written for a patient, not lifted from a clinic brochure. | — |
+| 6 | `education_not_diagnosis` | **safety** — the article educates and never diagnoses. | the sentence that tells the reader to see a clinician |
+| 7 | `indications_and_suitability` | **safety** — who the procedure suits is stated. | the "who may benefit" sentence |
+| 8 | `alternatives` | At least one alternative option is described. | — |
+| 9 | `no_guarantees` | **safety** — no guaranteed outcome, no "best", "painless", "100%". | the sentence that qualifies outcomes |
+| 10 | `contraindications` | **safety** — who should not have it is stated. | the "not suitable" sentence |
+| 11 | `risks_limitations` | **safety** — real risks and limits are named. | the risks sentence |
+| 12 | `professional_help` | **safety** — when to seek help is stated. | the "seek help" sentence |
+| 13 | `patient_privacy` | **safety** — no identifiable patient details, photos or stories. | the sentence or a note that no patient data appears |
+| 14 | `reviewed_references` | Every `references[]` entry was actually read and supports a claim. | — |
+| 15 | `natural_language` | Reads natively in its language; no translationese. | — |
+| 16 | `links_images_metadata` | Internal links resolve, image alt is set, meta fields are filled. | — |
+| 17 | `doctor_approval` | Content is consistent with the site's medical rules. | — |
+| 18 | `seo_approval` | The deterministic audit has no critical failures. | — |
+| 19 | `translation_status` | Every language in `site.languages` is drafted or has a recorded failure. | — |
+| 20 | `publication_approval` | Nothing in the article blocks publication. | — |
+
+An item you cannot honestly mark complete and cannot honestly omit is a judgment error `checklist_gap` in `audit.json` — do not guess.
+
+### Medical schema
+
+Medical articles use `MedicalWebPage` instead of `BlogPosting` and must carry `"reviewedBy": { "@type": "Person", "name": "{{site.reviewer.name}}", "jobTitle": "{{site.reviewer.credentials}}" }` — the name must match `site.reviewer.name` exactly, or the hub fails `structured_data_valid`.
 
 ## Structure rules
 
@@ -54,7 +124,7 @@ Each job has a `market` (ISO country code, e.g. SA, LY, YE, GR, DE, GB). The art
 
 ## E-E-A-T and medical safety
 
-- Byline is the site's `author` (name, credentials). Medical sites: include one sentence of "reviewed by <author>, <credentials>" in the closing section and set `Person` schema.
+- Byline is the site's `author` (name, credentials). Medical sites: include one sentence of "reviewed by {{site.reviewer.name}}, {{site.reviewer.credentials}}" in the closing section — the **reviewer**, not the author — and set `Person` schema. The hub fails `reviewer_present` (critical) when the site has no reviewer name or credentials, and `structured_data_valid` when `reviewedBy.name` does not match `site.reviewer.name` exactly.
 - Medical content: describe procedures, risks, recovery honestly; recommend a consultation; never diagnose; never promise results; no "best", "painless", "100%".
 - Cite at least 2 authoritative external sources (official bodies, peer-reviewed, established medical or tourism authorities) from research, https only.
 
@@ -85,7 +155,7 @@ Each job has a `market` (ISO country code, e.g. SA, LY, YE, GR, DE, GB). The art
 ]
 ```
 
-Medical sites (brief or rules mention clinic, doctor, treatment, surgery, dental, hospital): change `BlogPosting` to `MedicalWebPage` and add `"reviewedBy": { "@type": "Person", "name": "{{author.name}}", "jobTitle": "{{author.credentials}}" }`.
+Medical sites (`site.contentKind === "medical"` in the site file — never inferred from the brief or the rules text): change `BlogPosting` to `MedicalWebPage` and add `"reviewedBy": { "@type": "Person", "name": "{{site.reviewer.name}}", "jobTitle": "{{site.reviewer.credentials}}" }`.
 
 ## Hreflang
 
@@ -95,11 +165,26 @@ Medical sites (brief or rules mention clinic, doctor, treatment, surgery, dental
 { "en": "/blog/en/{{slug}}", "ar": "/blog/ar/{{slug}}", "x-default": "/blog/en/{{slug}}" }
 ```
 
-Include every language in the site's `languages` list, whether or not its localized version exists yet (they share the slug). Region codes (`ar-SA`) come in phase 4.
+List **only the languages that will actually ship** for this article — the ones this run drafts or localizes. The hub warns on `hreflang_reciprocal` for any language in the map with no stored article, and at publish time it trims the map to the languages it is really sending. Never pre-list a language whose version does not exist yet; `x-default` must point at one of the languages you listed. Region codes (`ar-SA`) come in phase 4.
 
 ## Audit codes
 
-Deterministic (hub): `keyword_title, keyword_h1, keyword_intro, keyword_h2 (warn), keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, paragraph_length (warn), internal_link_count, internal_link_missing, external_http, faq_count, title_duplicate, banned_phrase`.
-Judgment (auditor, severity error unless noted): `unsupported_claim` (claim with no matching fact), `medical_promise` (guarantee/outcome language), `market_missing` (no market angle), `source_count` (< 2 authoritative sources), `intent_mismatch`, `translationese` (localized text reads as a translation), `faq_generic (warn)`, `thin_section (warn)`.
+Severities are `critical` and `warning`. `pass` is false when any check is `critical`; warnings are reported and never block. `readiness` is `critical` when any critical fails, `needs_improvement` when only warnings fail, `ready` when nothing fails.
+
+Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, internal_link_count, internal_link_missing, external_http, faq_count, title_duplicate, banned_phrase, thin_content, intro_keyword, image_alt, structured_data_valid`.
+Deterministic (hub), warning: `keyword_h2, paragraph_length, keyword_stuffing, meta_description_duplicate, intro_length, secondary_keywords_used, og_fields, hreflang_reciprocal, cta_present`.
+Deterministic, medical sites only — critical: `references_count, safety_sections, reviewer_present, checklist_complete`; warning: `references_in_body, checklist_safety_evidence`.
+
+Judgment (auditor, severity `critical` unless noted): `unsupported_claim` (claim with no matching fact), `medical_promise` (guarantee/outcome language), `market_missing` (no market angle), `source_count` (< 2 authoritative sources), `intent_mismatch`, `checklist_gap` (a required checklist item that can be neither completed nor omitted honestly), `translationese` (localized text reads as a translation), `faq_generic` (warning), `thin_section` (warning).
+
+`keyword_intro` no longer exists — the keyword requirement moved from "first 100 words" to the `introduction` field as `intro_keyword`.
 
 Expect several `audit` steps per job in the hub: the writer runs `scripts/hub.sh audit` after each draft it posts (up to three times), and each orchestrator audit loop adds the deterministic result plus the auditor's combined one. That is expected, not a bug.
+
+## Keyword collisions
+
+One primary keyword per language per site. `scripts/hub.sh create-job` returns **HTTP 409** with `{"error":"keyword_taken","jobId":<n>}` when the keyword (normalized the same way as keyword placement) is already taken by a non-failed job on that site in that language. That is not a bug and not an agent contract violation: pick the next topic. `/api/plan` gives topic-scout each existing article's `primaryKeyword` so it can avoid the collision before asking.
+
+## Refresh jobs
+
+The hub queues a topic with `"source": "refresh"` and `"refreshJobId": <job id>` when a published article reaches `planned_update_at` (`published_at + site.refreshMonths`). A refresh topic is exempt from the keyword guard on purpose — the job re-uses the original keyword and slug and republishes through `adapter.update`. When a queued topic has `source: "refresh"`, create the job with `{"siteId", "topicId", "refreshOf": <topic.refreshJobId>}` and tell the writer to revise the published article rather than write a new one.
