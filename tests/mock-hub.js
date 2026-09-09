@@ -3,7 +3,7 @@ const http = require('node:http')
 const log = []
 let flaky = 0 // number of 500s to return before succeeding on /api/plan
 let down = 0 // number of requests to force to 500 (exhaustion test)
-const STEP_NAME = /^(research|outline|draft|audit|image_brief|localize:[a-z-]+)$/
+const STEP_NAME = /^(research|outline|draft|audit|checklist|image_brief|localize:[a-z-]+)$/
 const server = http.createServer((req, res) => {
   let body = ''
   req.on('data', (c) => (body += c))
@@ -27,6 +27,7 @@ const server = http.createServer((req, res) => {
     }
     if (/^\/api\/jobs\/42\/audit$/.test(req.url)) return send(200, { pass: false, issues: [{ code: 'x', severity: 'error', message: 'm' }] })
     if (/^\/api\/jobs\/42\/articles$/.test(req.url)) {
+      if (req.method === 'GET') return send(200, { articles: [{ lang: 'en', title: 'T', slug: 't' }] })
       const b = parsed || {}
       const ok = ['lang', 'title', 'slug'].every((k) => typeof b[k] === 'string' && b[k].length > 0)
       if (!ok) return send(400, { error: 'bad article' })
