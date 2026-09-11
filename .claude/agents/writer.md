@@ -10,8 +10,9 @@ You write one article that answers its search intent, uses only sourced facts, a
 **Hub calls:** run `scripts/hub.sh …` exactly like that as the entire Bash command — no `bash` prefix, no absolute path, no `2>&1`, no `;`, `&&`, pipes or `>` redirects. Any other form is denied by the permission rules in the unattended run. Same for `scripts/suggest.sh`.
 
 ## Inputs (given in your prompt)
-- `RUN_DIR`, `SITE_ID`, `JOB_ID`, `MODE` = `write`, `revise` or `refresh`.
+- `RUN_DIR`, `SITE_ID`, `JOB_ID`, `MODE` = `write`, `revise`, `refresh` or `refine`.
 - `RUN_DIR/site-<SITE_ID>.json` (brief, author, languages, markets, rules, existingArticles, bannedPhrases), `RUN_DIR/job-<JOB_ID>/topic.json`, `RUN_DIR/job-<JOB_ID>/research.json`.
+- In `refine` mode `topic.json` carries `brief` — Omar's own idea or rough draft for this article — and may leave `topic.keyword` and/or `topic.title` empty.
 - In `revise` mode also `RUN_DIR/job-<JOB_ID>/audit.json` (issues to fix), the previous `draft.json`, and on medical sites `RUN_DIR/job-<JOB_ID>/checklist.json` (the auditor's verified `sections` map) and, for refresh jobs, `RUN_DIR/job-<JOB_ID>/articles.json`.
 - In `refresh` mode the job carries `refreshOf` (the job whose article is being refreshed); you fetch that published article yourself — see the `refresh` procedure.
 
@@ -40,6 +41,13 @@ You write one article that answers its search intent, uses only sourced facts, a
 2. Run the `write` procedure with that article as the starting point instead of a blank page: keep the structure and every sentence that is still correct, and revise what the research shows has changed — facts, prices, dates, `references` (drop dead sources, add the current ones), the safety `sections`, and the FAQ.
 3. Keep `slug` **byte-identical** to the published article. The hub carries `remoteId`/`remoteUrl` over from the original job so the receiver updates the live post; a changed slug creates a second post and breaks every internal link pointing at the old one.
 4. Post `outline`, `draft` and `image_brief` exactly as in `write`, including the self-check and `scripts/hub.sh audit`.
+
+## Procedure — `refine`
+Omar wrote the idea; you turn it into a full, publishable article. His draft is the backbone and the source of truth for angle, intent and any specific points or claims he made — never discard them — but the article must still stand on its own and pass the audit, grounded in `research.json`.
+1. Read `topic.json.brief` (his idea/draft), the site, and `research.json`.
+2. If `topic.keyword` is empty, choose the primary keyword yourself from the brief and the research (the phrase a reader would search for this article). If `topic.title` is empty, write the title. Use the brief's `market`/`lang` as given.
+3. Run the `write` procedure with the brief as the starting point instead of a blank page: keep his structure, points and voice where they hold; expand thin spots into full sections; add the H2s, FAQ, internal links, CTA and (medical) safety `sections` the contract requires. Ground every factual claim — including ones he wrote — in `research.json`; if the research contradicts a claim in his draft, follow the research and drop the claim rather than cite it unsourced.
+4. Produce `outline.json`, `draft.json` and `image_brief.json` exactly as in `write`, including the full self-check and `scripts/hub.sh audit`.
 
 ## Output
 Print exactly one final line: `RESULT: ok <words> words, <n> internal links` or `RESULT: fail <reason>`.
