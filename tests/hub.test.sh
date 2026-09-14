@@ -50,6 +50,14 @@ printf 'HUB_URL=http://localhost:1\nHUB_TOKEN=wrong\n' > "$T/.env"
 echo '{}' > "$T/p.json"
 scripts/hub.sh step 99 research "$T/p.json" >/dev/null 2>"$T/err99" && fail "step on missing job should exit 1"
 grep -q 'no route' "$T/err99" || fail "step 99 error body missing 'no route'"
+# contract version check (PR 1c): major mismatch aborts selftest with a clear message
+curl -s localhost:3999/__contract-major-bump -H 'Authorization: Bearer tok' >/dev/null
+code=0; scripts/hub.sh selftest >/dev/null 2>"$T/errcontract" || code=$?
+[ "$code" -eq 1 ] || fail "contract major mismatch should abort selftest with exit 1 (got $code)"
+grep -q 'major' "$T/errcontract" || fail "contract mismatch message should mention major"
+curl -s localhost:3999/__contract-reset -H 'Authorization: Bearer tok' >/dev/null
+[ "$(scripts/hub.sh selftest 2>"$T/errok")" = "2026-08-31" ] || fail "selftest should pass again once contract major matches"
+grep -q 'continuing' "$T/errok" || fail "matching contract major should print a continuing note"
 # exhausting retries on 5xx -> exit 3, HTTP 500 in stderr (run last: consumes the mock's forced-500 budget)
 curl -s localhost:3999/__down -H 'Authorization: Bearer tok' >/dev/null
 code=0; scripts/hub.sh selftest >/dev/null 2>"$T/errdown" || code=$?
