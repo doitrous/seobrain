@@ -11,6 +11,7 @@ Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` 
 
 ## 0. Setup
 - Run `date +%F`; that is DATE. RUN_DIR is `runs/<date>`. Run `mkdir -p RUN_DIR`.
+- Run `scripts/hub.sh selftest` once (it also checks the hub's contract version — see Rules). `scripts/weekly.sh` already runs this before dispatching you, so it is nearly instant then; running it again is cheap and covers a manual or cloud-routine invocation that skipped weekly.sh.
 - Without `--resume`: run `scripts/hub.sh plan RUN_DIR/plan.json` (the second argument is the output file; never use a shell redirect, pipe, `;` or `bash` prefix with `scripts/hub.sh` — only the plain form is permitted in the unattended run, for you and for every agent). For each site in `plan.sites` write `RUN_DIR/site-<site.id>.json` containing the whole plan entry (`site`, `neededThisWeek`, `queuedTopics`, `publishedTitles`, `existingArticles`, `bannedPhrases`).
 - `--dry-run` stops here: it does not run `run-start` and does not write `state.json`; only `plan.json` and the per-site files above are written, and §1 prints the chosen topics and stops.
 - Otherwise (not `--dry-run`): run `scripts/hub.sh run-start`; the printed number is RUN_ID. Write `RUN_DIR/state.json`:
@@ -54,17 +55,19 @@ For every such job and every language in `languages` other than the job's `lang`
 
 ## 7. Schedule
 For every job with `steps.article = "done"` and every language in `languages` other than the job's `lang` has `steps["localize:<LANG>"]` equal to `"done"` or `"failed"`: run `scripts/hub.sh schedule <JOB_ID>`, set `status = "scheduled"`.
+- **HTTP 409 `{"error":"publish_blocked","reason":...}`** (hub-wide pause, this site's pause, its draft-only ramp, or approval required — see seohub `docs/contracts/README.md`) is expected, not a failure: record `state.jobs[JOB_ID].blockedReason = reason`, leave `status` as it was, and list the job under `blocked` in the summary (§8). Do not retry and do not apply the Agent failure policy.
 
 Scheduling is not publishing. At the end of the review window the hub re-runs the audit in publish mode; a critical failure parks the job in `needs_review` with the failing codes instead of publishing it, and Omar clears it in the dashboard. Reviewer dates are stamped by the hub at that moment, never by this run.
 
 ## 8. Finish
 Write `RUN_DIR/summary.json`:
-`{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "jobs": <count>, "durationMinutes" }`
-`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement).
+`{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "blocked": [{ "jobId", "reason" }], "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "jobs": <count>, "durationMinutes" }`
+`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `blocked` from `state.jobs[JOB_ID].blockedReason` set in §7 — the job stays wherever it was, this is not a failure, the hub's gate will let it through on a later run once the reason clears; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement).
 Then run `scripts/hub.sh run-finish <RUN_ID> RUN_DIR/summary.json`. Print the summary as a short table.
 
 ## Rules
 - Never skip a hub post to save time; the dashboard is the record.
-- If `scripts/hub.sh` fails on a 4xx (exit code 1; stderr carries `HTTP <code>` then the body), read the error body: it is a contract violation in the agent's output (missing key, bad lang). Re-dispatch the responsible agent at most once with the error body quoted; on a second 4xx apply the failure policy. A 4xx from `create-job`, `schedule` or `run-finish` has no agent: mark the job `failed` with the body (for `run-finish`, print the error and stop). **The one exception is `HTTP 409` from `create-job`** — a `keyword_taken` collision, not a contract violation: skip the topic and ask for a replacement (§1), and do not mark anything failed. Never hand-edit article content yourself.
+- If `scripts/hub.sh` fails on a 4xx (exit code 1; stderr carries `HTTP <code>` then the body), read the error body: it is a contract violation in the agent's output (missing key, bad lang). Re-dispatch the responsible agent at most once with the error body quoted; on a second 4xx apply the failure policy. A 4xx from `create-job`, `schedule` or `run-finish` has no agent: mark the job `failed` with the body (for `run-finish`, print the error and stop). **Two exceptions, neither a contract violation:** `HTTP 409` `keyword_taken` from `create-job` — skip the topic and ask for a replacement (§1), mark nothing failed; and `HTTP 409` `publish_blocked` from `schedule` — the hub's publish gate, not a run failure: record the reason and move on (§7). Never hand-edit article content yourself.
+- If `scripts/hub.sh selftest` aborts with a contract major mismatch (its own exit 1, message names the hub's and brain's major versions), stop the run — do not attempt any of the above; the fix is updating seobrain for the new contract, not retrying.
 - The hub is unreachable when `scripts/hub.sh` exit code 3 is returned (5xx after retries). Save `state.json` and stop with `RESULT: hub unreachable — rerun with --resume`.
 - Agent prompts are short: name the agent's inputs (RUN_DIR, SITE_ID, JOB_ID, MODE/LANG/NEEDED) and nothing else; the agent files carry the instructions.

@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
 # seo-hub API wrapper. Usage: scripts/hub.sh <command> [args]. Needs HUB_URL and HUB_TOKEN (from .env or the environment).
-# Exit codes: 1 = client error (4xx), 3 = hub unreachable.
+# Exit codes: 1 = client error (4xx) or a major contract mismatch, 3 = hub unreachable.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+# seohub docs/contracts/VERSION major this brain is written against (see docs/contracts/README.md).
+# Bump only after reading the new contract docs for breaking changes; a minor/patch bump is additive and safe.
+BRAIN_CONTRACT_MAJOR=1
 _env_url=${HUB_URL:-} _env_token=${HUB_TOKEN:-}
 [ -f .env ] && set -a && . ./.env && set +a
 [ -n "$_env_url" ] && HUB_URL=$_env_url
@@ -32,6 +35,20 @@ api() { # api METHOD PATH [JSON_FILE]  -> body on stdout; exit 1 on 4xx, exit 3 
 }
 jget() { node -pe "JSON.parse(require('fs').readFileSync(0,'utf8'))$1"; } # jget .run.id
 
+# Fetch the hub's contract version once per run (called from selftest, the run's pre-flight check).
+# Same major as BRAIN_CONTRACT_MAJOR: print the version to stderr and continue — a minor/patch bump
+# is additive. Different major: abort (set -e propagates this function's exit status).
+check_contract_version() {
+  local v major
+  v=$(api GET /api/contracts/version); v=$(jget .version <<<"$v")
+  major=${v%%.*}
+  if [ "$major" != "$BRAIN_CONTRACT_MAJOR" ]; then
+    echo "hub contract v$v is major v$major; this brain is pinned to v$BRAIN_CONTRACT_MAJOR — aborting, update seobrain for the new contract" >&2
+    return 1
+  fi
+  echo "hub contract v$v (brain pinned to major v$BRAIN_CONTRACT_MAJOR) — continuing" >&2
+}
+
 case ${1:-} in
   plan)       api GET /api/plan | tee "${2:-/dev/null}" ;;
   run-start)  out=$(api POST /api/runs); jget .run.id <<<"$out" ;;
@@ -43,6 +60,6 @@ case ${1:-} in
   article)    api POST "/api/jobs/$2/articles" "$3" ;;
   schedule)   api POST "/api/jobs/$2/schedule" ;;
   jobs)       api GET /api/jobs ;;
-  selftest)   out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
-  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|selftest (exit 1 = client error (4xx), 3 = hub unreachable)" >&2; exit 2 ;;
+  selftest)   check_contract_version; out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
+  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
 esac
