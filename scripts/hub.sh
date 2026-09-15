@@ -60,6 +60,9 @@ case ${1:-} in
   article)    api POST "/api/jobs/$2/articles" "$3" ;;
   schedule)   api POST "/api/jobs/$2/schedule" ;;
   jobs)       api GET /api/jobs ;;
+  # v2 phase 4 companion (ticket 4b, "pull approved briefs/opportunities"): the hub-approved
+  # briefs for one site, ready to hand straight to `create-job` as `{"siteId", "briefId"}`.
+  briefs)     api GET "/api/briefs?siteId=$2&status=approved" | tee "${3:-/dev/null}" ;;
   selftest)   check_contract_version; out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
-  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
+  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|briefs SITE_ID [OUTFILE]|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
 esac
