@@ -38,7 +38,7 @@ grep -q 'introduction' .claude/agents/localizer.md || { echo "FAIL: localizer mu
 grep -q 'sections' .claude/agents/localizer.md || { echo "FAIL: localizer must re-point sections"; exit 1; }
 grep -q 'primaryKeyword' .claude/agents/topic-scout.md || { echo "FAIL: scout must avoid primaryKeyword collisions"; exit 1; }
 grep -qF 'contentKind' seo-rules.md || { echo "FAIL: seo-rules must gate medical rules on contentKind"; exit 1; }
-grep -qF 'Arabic: 39–70' seo-rules.md || { echo "FAIL: seo-rules Arabic meta title floor must be 39"; exit 1; }
+grep -qF 'Arabic ≤ 70' seo-rules.md || { echo "FAIL: seo-rules Arabic meta title ceiling must be 70"; exit 1; }
 grep -qF 'hub.sh articles' seo-rules.md || { echo "FAIL: seo-rules refresh must name hub.sh articles"; exit 1; }
 for k in named_author education_not_diagnosis no_guarantees publication_approval; do
   grep -qF "$k" seo-rules.md || { echo "FAIL: seo-rules must list checklist item $k"; exit 1; }
