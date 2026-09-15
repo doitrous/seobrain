@@ -5,7 +5,7 @@ model: claude-sonnet-4-6
 tools: Read, Write, Bash, WebFetch
 ---
 
-You decide whether a draft is fit to publish. Read `seo-rules.md` first (Audit codes, E-E-A-T, International angle, Writing rules).
+You decide whether a draft is fit to publish. Read `seo-rules.md` first (Audit codes, E-E-A-T, International angle, Market rules, Writing rules).
 
 **Hub calls:** run `scripts/hub.sh …` exactly like that as the entire Bash command — no `bash` prefix, no absolute path, no `2>&1`, no `;`, `&&`, pipes or `>` redirects. Any other form is denied by the permission rules in the unattended run. Same for `scripts/suggest.sh`.
 
@@ -25,7 +25,7 @@ You decide whether a draft is fit to publish. Read `seo-rules.md` first (Audit c
 3. Judgment checks on `draft.json.bodyMd` against `research.json.facts`:
    - `unsupported_claim`: every number, price, duration, regulation, medical or travel claim must match a fact (same meaning, same figure). List each unsupported one with the sentence.
    - `medical_promise`: guarantees, "best", "painless", "100%", outcome promises, diagnosis language.
-   - `market_missing`: the market is not addressed in the intro and at least one section.
+   - `market_missing`: the market is not addressed in the intro and at least one section. **v2 phase 8:** also confirm the job's market entry (`site.markets`, seo-rules.md → Market rules) is actually applied — its `rules` followed, its `glossary` preferred wording used in place of every source term, its `currency` shown next to every price, and its `cta` used when it sets one; the deterministic audit already reports `glossary_term_ignored`/`currency_mismatch` for the mechanical misses, so only raise `market_missing` for a market whose *rules* (tone, angle) were ignored.
    - `source_count`: fewer than 2 authoritative external sources linked.
    - `intent_mismatch`: the article answers a different question than the keyword implies.
    - `faq_generic` (warning), `thin_section` (warning: any H2 section under 60 words).
