@@ -29,6 +29,11 @@ grep -q 'HTTP 400' "$T/errart" || fail "article missing slug error missing HTTP 
 scripts/hub.sh articles 42 | grep -q '"articles"' || fail articles
 scripts/hub.sh articles 42 "$T/articles.json" >/dev/null && grep -q '"slug":"t"' "$T/articles.json" || fail "articles OUTFILE"
 scripts/hub.sh schedule 42 | grep -q scheduled || fail schedule
+# v2 phase 4 companion: pull approved briefs for a site
+curl -s -X POST localhost:3999/__set-briefs -H 'Authorization: Bearer tok' -H 'content-type: application/json' \
+  -d '{"briefs":[{"id":9,"status":"approved","keyword":"k"}]}' >/dev/null
+scripts/hub.sh briefs 1 | grep -q '"id":9' || fail briefs
+scripts/hub.sh briefs 1 "$T/briefs.json" >/dev/null && grep -q '"keyword":"k"' "$T/briefs.json" || fail "briefs OUTFILE"
 scripts/hub.sh schedule 99 >/dev/null 2>"$T/err" && fail "4xx should exit 1"; grep -q 'not found' "$T/err" || fail "4xx body to stderr"
 grep -q 'HTTP 404' "$T/err" || fail "4xx HTTP line missing"
 curl -s localhost:3999/__flaky -H 'Authorization: Bearer tok' >/dev/null

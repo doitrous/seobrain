@@ -6,8 +6,8 @@ Every agent reads this file before doing anything. The hub's deterministic audit
 
 Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verbatim, so keys must match exactly.
 
-- `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "pageType", "rationale" }`. See Page types below for `pageType`.
-- `research.json` (researcher): `{ "searchIntent", "facts": [{ "claim", "source_url", "quote" }], "competitorHeadings": [{ "url", "headings": [] }], "peopleAlsoAsk": [], "gaps": [], "localAngle" }`
+- `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "pageType", "rationale" }`. See Page types below for how `pageType` is assigned — by topic-scout, a queued-topic row, or (v2 phase 4) copied straight from a hub-approved brief when the job is `{"siteId","briefId"}` — and its Writer modes by page type subsection for what the writer then does differently.
+- `research.json` (researcher): `{ "searchIntent", "facts": [{ "claim", "source_url", "quote", "asOf" }], "competitorHeadings": [{ "url", "headings": [] }], "peopleAlsoAsk": [], "gaps": [], "localAngle" }`. `asOf` (v2 phase 4) is the month and year the fact is current as of — "March 2026" — taken from the source's own dated content when it has one, otherwise the month/year you fetched it. This is the same shape the hub's brief `sources[]` uses (`{url, quote, claim}`, `asOf` folded into the claim sentence as "as of <month year>") — a `facts[]` entry is a `sources[]` entry with the research-stage field names.
 - `outline.json` (writer): `{ "h1", "sections": [{ "h2", "h3s": [], "purpose" }], "targetWords", "primaryKeyword", "secondaryKeywords": [], "faqQuestions": [], "internalLinks": [{ "title", "slug" }] }`
 - `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sections": { "<safety key>": { "heading": "<the exact H2 text in bodyMd>" } | { "omitted": true, "reason": "…" } }`, one entry for each of the four safety keys. The **writer** produces it: the hub reads `sections` from the `draft` step when it audits, and stores it on the article when the draft is posted as the primary article. The auditor verifies that map against `bodyMd` and copies the verified version into `checklist.json.sections`, which the hub uses when the article payload carries none.
 - `image_brief.json` (writer): `{ "prompt", "search_terms": [], "alt", "filename" }`
@@ -58,7 +58,20 @@ Topic-scout sets `pageType` on every discovered topic — one of `pillar, cluste
 | a direct question a short, sourced answer settles ("is X safe", "do I need a visa for X") | `help` |
 | broad/how-it-works background with no first-party data or decision aid | `guide` — use sparingly; the hub refuses a site's 4th `guide` job in a row while it is under its bottom-funnel quota (`400 guide_quota_exceeded` from `create-job` — see Keyword collisions) |
 
-A `queuedTopics[]` row may already carry a `pageType` (an admin or the ledger set it) — never override that one; only assign `pageType` yourself for a topic-scout-discovered topic. Pass it straight through in `create-job`'s `topic` object; the hub uses it to pick that type's template and required-links checks (see `required_links_missing` etc. below) — a topic with no `pageType` simply skips those checks.
+A `queuedTopics[]` row may already carry a `pageType` (an admin or the ledger set it) — never override that one; only assign `pageType` yourself for a topic-scout-discovered topic. Pass it straight through in `create-job`'s `topic` object; the hub uses it to pick that type's template and required-links checks (see `required_links_missing` etc. below) — a topic with no `pageType` simply skips those checks. (v2 phase 4) A brief-based job (`{"siteId","briefId"}`) carries its brief's `pageType` the same way — see Writer modes by page type below.
+
+### Writer modes by page type (v2 phase 4)
+
+Whichever way `pageType` got set — topic-scout, a queued-topic row, or a hub-approved brief — the writer follows that type's mode in addition to every other rule in this file:
+
+- `procedure`, `cluster`, `tour`, `guide`, `author`, `about`, `landing`, or no `pageType` at all: the base `write` procedure, unchanged.
+- `cost`: a pricing table naming at least 2–3 concrete, real providers/clinics/options with currency and year, plus a short "what affects the price" section.
+- `comparison`: a markdown table comparing named, real competitors or options by the reader's actual decision criteria, with **at least one row where the site/subject honestly loses or ties** — a comparison with no losses reads as an ad, not research, and fails E-E-A-T trust. Never invent a competitor or a number for one.
+- `alternative`: 5–8 real alternative options (not fewer, not a wall of 20), each with a one-line "best for" and its own honest trade-off.
+- `constraint`: written for a reader who may be ruled out by a specific constraint (budget, age, medical condition, timing) — lead with whether they qualify, then what to do if they don't.
+- `help`: answer-first — the direct answer in the first sentence, no throat-clearing intro — matching the hub's `answer_first` help-center check.
+- `tool`: write only the tool's copy (`methodologyMd`, `dataSource`, `asOf`, `faq[]`); never invent the calculator's logic/config, and never guess `dataSource`/`asOf` without a source in research.
+- `pillar`: an overview that introduces and links every member of its hub (member titles/slugs come from the brief); no facts of its own beyond what is needed to summarize each member.
 
 ### Funnel stages
 
@@ -144,6 +157,7 @@ Medical articles use `MedicalWebPage` instead of `BlogPosting` and must carry `"
 - Sentence length targets (average): en 15–20 words, ar 12–18, de 14–20, el 14–20, it 15–20, ru 12–18.
 - Keep proper nouns (clinic names, Cairo districts) in Latin script in Arabic text only when there is no established Arabic form.
 - Right-to-left languages: no layout instructions in the text; the site handles direction.
+- **Arabic-first (v2 phase 4):** when a site's primary language (`site.languages[0]`) is `ar`, the orchestrator dispatches that job's Arabic localizer before its other languages (skill §6) so a partial run never drops the primary language. This is dispatch order only — the writer/localizer procedures for Arabic are otherwise identical to any other language.
 
 ## International angle
 
@@ -201,8 +215,9 @@ List **the site's planned languages** for this article — every language this r
 
 Severities are `critical` and `warning`. `pass` is false when any check is `critical`; warnings are reported and never block. `readiness` is `critical` when any critical fails, `needs_improvement` when only warnings fail, `ready` when nothing fails.
 
-Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, internal_link_count, internal_link_missing, external_http, faq_count, title_duplicate, banned_phrase, thin_content, intro_keyword, image_alt, structured_data_valid`.
-Deterministic (hub), warning: `keyword_h2, paragraph_length, keyword_stuffing, meta_description_duplicate, intro_length, secondary_keywords_used, og_fields, hreflang_reciprocal, cta_present`.
+Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, internal_link_count, internal_link_missing, external_http, faq_count, title_duplicate, banned_phrase, thin_content, intro_keyword, image_alt, structured_data_valid, near_duplicate_site`.
+Deterministic (hub), warning: `keyword_h2, paragraph_length, keyword_stuffing, meta_description_duplicate, intro_length, secondary_keywords_used, og_fields, hreflang_reciprocal, cta_present, near_duplicate_portfolio`.
+`near_duplicate_site`/`near_duplicate_portfolio` (v2 phase 4): simhash distance ≤ 3 against another published article on the same site (critical) or ≤ 6 across the whole portfolio (warning). Handled by the ordinary audit loop (skill §4) — see the writer's `revise` procedure for what to actually change.
 Deterministic, medical sites only — critical: `references_count, safety_sections, reviewer_present, checklist_complete`; warning: `references_in_body, checklist_safety_evidence`.
 Deterministic, page-type + link graph (only on a job with `pageType` set) — critical: `required_links_missing` (the draft is missing a link its `pageType` requires; the message names exactly what — `pillar (<slug>)`, `siblings (<slug>, <slug>)`, and/or `money page (<url>)`. Fix it by adding a markdown internal link to each named slug, in the same `/blog/<lang>/<slug>` form as any other internal link, and by making sure the money page's URL literally appears in `bodyMd` — a mention or a link both satisfy it). Warning: `anchor_variety_low` (two or more internal links reuse the same anchor text — give each its own descriptive phrase), `template_section_missing` (the `pageType`'s template expects an H2 matching a pattern that is not present — add it), `template_schema_mismatch` (add a `schemaJsonld` entry whose `@type` matches the page type — `lib/page-types.ts` in the hub names the expected type per `pageType`, e.g. `cost` → `Service`, `comparison`/`alternative` → `ItemList`, `tool` → `WebApplication`), `internal_link_cap` (a *published* page has grown past 45 outbound links site-wide — nothing a single draft controls; it shows up in the hub's weekly link report, not per-job).
 
