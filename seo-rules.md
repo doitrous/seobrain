@@ -6,7 +6,7 @@ Every agent reads this file before doing anything. The hub's deterministic audit
 
 Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verbatim, so keys must match exactly.
 
-- `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "rationale" }`
+- `topic.json` (topic-scout → orchestrator): `{ "title", "keyword", "market", "lang", "source": "discovered", "intent": "informational|commercial|transactional", "pageType", "rationale" }`. See Page types below for `pageType`.
 - `research.json` (researcher): `{ "searchIntent", "facts": [{ "claim", "source_url", "quote" }], "competitorHeadings": [{ "url", "headings": [] }], "peopleAlsoAsk": [], "gaps": [], "localAngle" }`
 - `outline.json` (writer): `{ "h1", "sections": [{ "h2", "h3s": [], "purpose" }], "targetWords", "primaryKeyword", "secondaryKeywords": [], "faqQuestions": [], "internalLinks": [{ "title", "slug" }] }`
 - `draft.json` (writer, also the article payload): `{ "lang", "title", "metaTitle", "metaDescription", "slug", "bodyMd", "keyword", "targetWords", "introduction", "secondaryKeywords": [], "searchIntent", "og": { "title", "description" }, "references": [{ "title", "url", "publisher", "date" }], "faq": [{ "q", "a" }], "internalLinks": [{ "title", "slug" }], "schemaJsonld": [], "hreflang": {} }`. Medical sites also carry `"sections": { "<safety key>": { "heading": "<the exact H2 text in bodyMd>" } | { "omitted": true, "reason": "…" } }`, one entry for each of the four safety keys. The **writer** produces it: the hub reads `sections` from the `draft` step when it audits, and stores it on the article when the draft is posted as the primary article. The auditor verifies that map against `bodyMd` and copies the verified version into `checklist.json.sections`, which the hub uses when the article payload carries none.
@@ -43,6 +43,22 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 | `transactional` | `booking_transactional` |
 
 The topic-scout's `intent` is advisory: the writer sets `local` when the keyword names a city, area or clinic, and `navigational` when it names a brand or a specific page; otherwise it uses the mapping above. Never invent a sixth value.
+
+## Page types
+
+Topic-scout sets `pageType` on every discovered topic — one of `pillar, cluster, procedure, tour, cost, comparison, alternative, constraint, help, guide, tool, author, about, landing`. Pick from the keyword's shape, not the site's vertical:
+
+| keyword/title shape | `pageType` |
+|---|---|
+| "X cost", "how much does X cost", price-led | `cost` |
+| "X vs Y", "X or Y" | `comparison` |
+| "alternatives to X", "best X" (a list of options) | `alternative` |
+| "X for <constraint>" (age, budget, condition, nationality) | `constraint` |
+| a specific procedure or trip page ("hair transplant Egypt", "Cairo day tour") | `procedure` (medical/clinic sites) or `tour` (travel sites) |
+| a direct question a short, sourced answer settles ("is X safe", "do I need a visa for X") | `help` |
+| broad/how-it-works background with no first-party data or decision aid | `guide` — use sparingly; the hub refuses a site's 4th `guide` job in a row while it is under its bottom-funnel quota (`400 guide_quota_exceeded` from `create-job` — see Keyword collisions) |
+
+A `queuedTopics[]` row may already carry a `pageType` (an admin or the ledger set it) — never override that one; only assign `pageType` yourself for a topic-scout-discovered topic. Pass it straight through in `create-job`'s `topic` object; the hub uses it to pick that type's template and required-links checks (see `required_links_missing` etc. below) — a topic with no `pageType` simply skips those checks.
 
 ## Secondary keywords, OG and references
 
@@ -176,6 +192,7 @@ Severities are `critical` and `warning`. `pass` is false when any check is `crit
 Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, internal_link_count, internal_link_missing, external_http, faq_count, title_duplicate, banned_phrase, thin_content, intro_keyword, image_alt, structured_data_valid`.
 Deterministic (hub), warning: `keyword_h2, paragraph_length, keyword_stuffing, meta_description_duplicate, intro_length, secondary_keywords_used, og_fields, hreflang_reciprocal, cta_present`.
 Deterministic, medical sites only — critical: `references_count, safety_sections, reviewer_present, checklist_complete`; warning: `references_in_body, checklist_safety_evidence`.
+Deterministic, page-type + link graph (only on a job with `pageType` set) — critical: `required_links_missing` (the draft is missing a link its `pageType` requires; the message names exactly what — `pillar (<slug>)`, `siblings (<slug>, <slug>)`, and/or `money page (<url>)`. Fix it by adding a markdown internal link to each named slug, in the same `/blog/<lang>/<slug>` form as any other internal link, and by making sure the money page's URL literally appears in `bodyMd` — a mention or a link both satisfy it). Warning: `anchor_variety_low` (two or more internal links reuse the same anchor text — give each its own descriptive phrase), `template_section_missing` (the `pageType`'s template expects an H2 matching a pattern that is not present — add it), `template_schema_mismatch` (add a `schemaJsonld` entry whose `@type` matches the page type — `lib/page-types.ts` in the hub names the expected type per `pageType`, e.g. `cost` → `Service`, `comparison`/`alternative` → `ItemList`, `tool` → `WebApplication`), `internal_link_cap` (a *published* page has grown past 45 outbound links site-wide — nothing a single draft controls; it shows up in the hub's weekly link report, not per-job).
 
 Judgment (auditor, severity `critical` unless noted): `unsupported_claim` (claim with no matching fact), `medical_promise` (guarantee/outcome language), `market_missing` (no market angle), `source_count` (< 2 authoritative sources), `intent_mismatch`, `checklist_gap` (a required content checklist item that can be neither completed nor omitted honestly), `translationese` (localized text reads as a translation), `faq_generic` (warning), `thin_section` (warning).
 
@@ -188,6 +205,10 @@ On medical sites the writer's own audits run before any `checklist` step exists,
 ## Keyword collisions
 
 One primary keyword per language per site. `scripts/hub.sh create-job` returns **HTTP 409** with `{"error":"keyword_taken","jobId":<n>}` when the keyword (normalized the same way as keyword placement) is already taken by a non-failed job on that site in that language. That is not a bug and not an agent contract violation: pick the next topic. `/api/plan` gives topic-scout each existing article's `primaryKeyword` so it can avoid the collision before asking.
+
+`create-job` also returns **HTTP 409** with `{"error":"topic_owned_by_other_site","ownerSiteId","ownerSiteSlug","targetUrl"}` when the topic ledger already has this keyword+language `owned` by a *different* site — the hub's cross-site guard (`/api/plan`'s `blockedTopics[]` lists these in advance; drop any candidate whose normalized keyword+language matches one of them before asking topic-scout to spend a search on it). Handled exactly like `keyword_taken`: not a bug, drop the topic, pick the next one.
+
+`create-job` also returns **HTTP 400** with `{"error":"guide_quota_exceeded"}` when the site has had 3 consecutive `guide` jobs and is under its bottom-funnel quota (`sites.mixTargets.bottom`). Drop that topic's `pageType` down to something bottom-funnel-shaped (`cost`, `procedure`/`tour`, `help`, `tool`) if the keyword supports it, or pick the next topic — never retry the same `pageType` for that slot.
 
 ## Refresh jobs
 
