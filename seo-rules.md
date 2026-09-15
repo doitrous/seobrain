@@ -60,6 +60,18 @@ Topic-scout sets `pageType` on every discovered topic — one of `pillar, cluste
 
 A `queuedTopics[]` row may already carry a `pageType` (an admin or the ledger set it) — never override that one; only assign `pageType` yourself for a topic-scout-discovered topic. Pass it straight through in `create-job`'s `topic` object; the hub uses it to pick that type's template and required-links checks (see `required_links_missing` etc. below) — a topic with no `pageType` simply skips those checks.
 
+### Funnel stages
+
+Each `pageType` sits in exactly one funnel stage — this is how `/api/plan`'s `funnelGap` (target minus actual job count this week, per stage, from `sites.mixTargets`) maps back onto a topic choice:
+
+| stage | `pageType`s |
+|---|---|
+| `bottom` | `procedure`, `tour`, `cost`, `tool`, `landing`, `help` |
+| `mid` | `comparison`, `alternative`, `constraint` |
+| `top` | `guide`, `pillar`, `cluster`, `author`, `about` |
+
+Topic-scout reads `funnelGap` from its own input file and, when ranking otherwise-similar candidates, prefers the one whose `pageType` falls in the stage with the largest gap (see its own file, step 5). Never bend a candidate into the wrong `pageType` just to hit a stage.
+
 ## Secondary keywords, OG and references
 
 - `secondaryKeywords`: 3–6 phrases from research (People Also Ask, competitor headings, autocomplete). At least three must actually appear in `bodyMd` — the hub warns on `secondary_keywords_used` otherwise.
@@ -213,3 +225,10 @@ One primary keyword per language per site. `scripts/hub.sh create-job` returns *
 ## Refresh jobs
 
 The hub queues a topic with `"source": "refresh"` and `"refreshJobId": <job id>` when a published article reaches `planned_update_at` (`published_at + site.refreshMonths`). A refresh topic is exempt from the keyword guard on purpose — the job re-uses the original keyword and slug and republishes through `adapter.update`. When a queued topic has `source: "refresh"`, create the job with `{"siteId", "topicId", "refreshOf": <topic.refreshJobId>}` and dispatch the writer with `MODE=refresh`: it fetches the published article with `scripts/hub.sh articles <JOB_ID> <FILE>` and revises that article against the research — updated facts, dates, references and safety sections — instead of writing a new one. `slug` stays byte-identical to the published article: the hub carries `remoteId`/`remoteUrl` over from the original job so the receiver updates the live post, and a changed slug would create a second post and break every internal link pointing at the old one.
+
+## Ledger ownership and optimize-first
+
+`/api/plan` also carries, per site: `ownedTopics` (this site's own `owned` rows in the topic ledger — `{ "normalizedKey", "language", "targetUrl" }`) and `optimizePreferred` (existing pages GSC evidence says to refresh rather than compete with a new draft — `{ "jobId", "slug", "lang", "query", "position" }`).
+
+- **`ownedTopics`**: a keyword this site has already claimed, whether or not it has a published article yet. Topic-scout adopts any entry not already covered by `existingArticles`/`queuedTopics` before it spends a single search — see its own file, step 0. There is no collision risk (the ledger already says this site owns it), so it always beats a discovered candidate for the same slot.
+- **`optimizePreferred`**: a *published* page whose own keyword is showing up at striking distance in Search Console. Refreshing it is cheaper and more likely to move the needle than a new page competing for the same intent. The orchestrator creates the refresh job directly from the entry (`refreshOf: entry.jobId`, `topic.source: "refresh"` — see SKILL.md §1) instead of asking topic-scout to discover that query; topic-scout drops any candidate matching one so the same query never becomes two jobs.
