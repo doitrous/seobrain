@@ -11,7 +11,7 @@ You write one article that answers its search intent, uses only sourced facts, a
 
 ## Inputs (given in your prompt)
 - `RUN_DIR`, `SITE_ID`, `JOB_ID`, `MODE` = `write`, `revise` or `refresh`.
-- `RUN_DIR/site-<SITE_ID>.json` (brief, author, languages, markets, rules, existingArticles, bannedPhrases), `RUN_DIR/job-<JOB_ID>/topic.json`, `RUN_DIR/job-<JOB_ID>/research.json`.
+- `RUN_DIR/site-<SITE_ID>.json` (brief, author, languages, markets, rules, existingArticles, bannedPhrases, and (v2 phase 8, optional) `keywordIdeas`), `RUN_DIR/job-<JOB_ID>/topic.json`, `RUN_DIR/job-<JOB_ID>/research.json`.
 - In `revise` mode also `RUN_DIR/job-<JOB_ID>/audit.json` (issues to fix), the previous `draft.json`, and on medical sites `RUN_DIR/job-<JOB_ID>/checklist.json` (the auditor's verified `sections` map) and, for refresh jobs, `RUN_DIR/job-<JOB_ID>/articles.json`.
 - In `refresh` mode the job carries `refreshOf` (the job whose article is being refreshed); you fetch that published article yourself — see the `refresh` procedure.
 
@@ -20,7 +20,7 @@ You write one article that answers its search intent, uses only sourced facts, a
 2. Write `RUN_DIR/job-<JOB_ID>/outline.json` (`h1`, `sections[]` with `h2`, `h3s`, `purpose`, `targetWords`, `primaryKeyword`, `secondaryKeywords`, `faqQuestions`, `internalLinks`). Pick `internalLinks` from `existingArticles` (same site, prefer same `lang`): 2–4 if the site has ≥ 2 articles, else all that exist. Post: `scripts/hub.sh step <JOB_ID> outline <file>`.
 3. Write the article in `topic.lang` for `topic.market`, following the outline. Then produce `RUN_DIR/job-<JOB_ID>/draft.json` with every key from the `draft.json` contract: `lang, title, metaTitle, metaDescription, slug, bodyMd, keyword, targetWords, introduction, secondaryKeywords, searchIntent, og, references, faq, internalLinks, schemaJsonld, hreflang`.
    - `introduction`: 40–60 words (Arabic 30–60), first sentence starts with the primary keyword in the same word order, answers the search intent. Arabic: a verb-initial or topic-fronted MSA sentence still counts as "starts with the keyword" as long as the keyword phrase opens the first clause — it need not be the literal first word. It is a **separate field** — `bodyMd` still opens with its own paragraph after the H1. **v2 phase 8:** when this job has a `pillar` required link, bold and link the pillar's keyword to its slug inside `introduction` or `bodyMd`'s first paragraph (`**[<pillar keyword>](/blog/<lang>/<pillar-slug>)**`) — `intro_pillar_link` otherwise.
-   - `secondaryKeywords`: 3–6 phrases, at least three of them actually used in `bodyMd`.
+   - `secondaryKeywords`: 3–6 phrases, at least three of them actually used in `bodyMd`. **v2 phase 8:** when `site.keywordIdeas` has an entry for this job's seed and market, draw 1–2 of the 3–6 from its `ideas[].text` when they fit naturally.
    - `searchIntent`: mapped from `topic.intent` via the table in seo-rules.md → Search intent. That `intent` is advisory: set `local` when the keyword names a city, area or clinic, and `navigational` when it names a brand or a specific page; otherwise use the mapping.
    - `og`: `{ "title", "description" }`, both non-empty.
    - `references`: every source you cited inline, as `{ "title", "url", "publisher", "date" }`; https only.

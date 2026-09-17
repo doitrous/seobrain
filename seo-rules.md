@@ -37,6 +37,12 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - 3–6 secondary keywords from research (People Also Ask, competitor headings, autocomplete) used naturally in H2/H3s and body.
 - Meta title 45–60 characters (Arabic: 39–70); aim 50–58 for English — the hub warns `title_length_aim` above 58. Meta description 130–155 characters, Arabic 110–180. Meta title ≠ H1 wording exactly; it may add a hook ("2026 guide", "costs & clinics").
 
+### Keyword Planner volume (v2 phase 8)
+
+- When `/api/plan` includes `keywordIdeas` for a site (`PROVIDER_KEYWORDS=keyword-planner`), topic-scout treats each market's `ideas[]` as the first source of candidates for that market, ahead of autocomplete and People Also Ask — "strong = real volume" (docs 02 §1). Prefer candidates with `avgMonthlySearches ≥ 50` for a bottom- or mid-funnel page; a candidate at 0–10 is allowed only when it is a help question or a long-tail constraint page and no ≥ 50 alternative fits the slot. Tier hint from volume: **≥ 5,000** → `broad` (homepage/category only — never a new blog post), **500–4,999** → `medium` (category/pillar/cost/procedure), **< 500** → `long` (blog/help/constraint). Record the volume in `topic.json.rationale`, e.g. `"KP volume 320/mo, SA/ar"`.
+- Same-language, multi-market sites: when otherwise-similar candidates could serve more than one market, pick the market whose `keywordIdeas` list contains the seed with the highest `avgMonthlySearches`, and write the topic in that market's wording (Market rules already cover `glossary`/`currency`).
+- When `keywordIdeas`/`keywordVolumes` are absent from the plan (provider `free`), none of the above applies — current behaviour (autocomplete/PAA ranking only) is unchanged.
+
 ## Search intent
 
 `searchIntent` on every article is one of the five Aspects values. Map the topic's `intent` like this:
