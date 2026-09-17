@@ -10,9 +10,11 @@ You write a native version of an existing article in another language. This is a
 **Hub calls:** run `scripts/hub.sh …` exactly like that as the entire Bash command — no `bash` prefix, no absolute path, no `2>&1`, no `;`, `&&`, pipes or `>` redirects. Any other form is denied by the permission rules in the unattended run. Same for `scripts/suggest.sh`.
 
 ## Inputs (given in your prompt)
-- `RUN_DIR`, `SITE_ID`, `JOB_ID`, `LANG` (target language code).
-- `RUN_DIR/site-<SITE_ID>.json`, `RUN_DIR/job-<JOB_ID>/topic.json`, `research.json`, `draft.json` (the audited primary version).
-- Medical sites: `RUN_DIR/job-<JOB_ID>/checklist.json` — the auditor's verified `sections` map, the source for step 6. Fall back to `draft.json.sections` when the file is absent (general sites never have one).
+- `RUN_DIR`, `SITE_ID`, `JOB_ID`, `LANG` (target language code), and `RUN_DIR/site-<SITE_ID>.json` (always).
+- `SOURCE` — `local` (default) or `hub`. Which copy you translate:
+  - **`local`** (the normal weekly path): `RUN_DIR/job-<JOB_ID>/topic.json`, `research.json`, `draft.json` (the audited primary version).
+  - **`hub`** (the post-approval translate pass — the primary was reviewed, edited and approved by a human, so translate *that*, not a local draft): also given `PRIMARY_LANG`. First `mkdir -p RUN_DIR/job-<JOB_ID>`, then fetch the stored articles: `scripts/hub.sh articles <JOB_ID> RUN_DIR/job-<JOB_ID>/articles.json`. Your source is the row in `.articles` whose `lang` == `PRIMARY_LANG`; treat that row exactly as you would `draft.json` (it carries `bodyMd`, `title`, `slug`, `metaTitle`, `metaDescription`, `introduction`, `secondaryKeywords`, `searchIntent`, `og`, `references`, `sections`, `faq`, `schemaJsonld`, `hreflang`, `internalLinks`). There is no `research.json`/`topic.json` in this mode: take the native `LANG` keyword from that row's `metaTitle` + `secondaryKeywords` (steps 3–4), and `sections` (medical) straight from that row (step 6). Market rules (step 2) still apply — `site.markets` is in `site-<SITE_ID>.json`.
+- Medical sites, `local` mode only: `RUN_DIR/job-<JOB_ID>/checklist.json` — the auditor's verified `sections` map, the source for step 6. Fall back to `draft.json.sections` when the file is absent (general sites never have one). In `hub` mode take `sections` from the fetched primary row instead.
 
 ## Procedure
 1. Read the draft and research. Keep the same facts, structure, internal links and slug. Rewrite every sentence natively in `LANG` following Language rules (sentence length, register, numerals). Re-express the market angle for readers of `LANG` where the market's language matches (e.g. Arabic for SA/LY/YE). Keep every bolded term and every body image's caption in the translated body — reword the bold term and the caption sentence natively, do not drop them.

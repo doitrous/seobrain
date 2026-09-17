@@ -22,6 +22,8 @@ grep -q 'HTTP 400' "$T/errstep" || fail "bad step name error missing HTTP 400"
 scripts/hub.sh audit 42 | grep -q '"pass":false' || fail audit
 scripts/hub.sh audit 42 "$T/audit.json" >/dev/null && grep -q '"pass":false' "$T/audit.json" || fail "audit OUTFILE"
 scripts/hub.sh plan "$T/plan.json" >/dev/null && grep -q '"weekOf"' "$T/plan.json" || fail "plan OUTFILE"
+scripts/hub.sh translate-queue | grep -q '"enabled":true' || fail translate-queue
+scripts/hub.sh translate-queue "$T/tq.json" >/dev/null && grep -q '"primaryLang":"en"' "$T/tq.json" || fail "translate-queue OUTFILE"
 echo '{"lang":"en","title":"T","slug":"t"}' > "$T/article.json"; scripts/hub.sh article 42 "$T/article.json" | grep -q '"article"' || fail article
 echo '{"lang":"en","title":"T"}' > "$T/article-bad.json"
 scripts/hub.sh article 42 "$T/article-bad.json" >/dev/null 2>"$T/errart" && fail "article missing slug should exit 1"
