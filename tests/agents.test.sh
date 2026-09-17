@@ -46,4 +46,9 @@ done
 for k in who_may_benefit who_may_not_be_suitable risks_limitations when_to_seek_help; do
   grep -qF "$k" seo-rules.md || { echo "FAIL: seo-rules must list safety section $k"; exit 1; }
 done
+# contract 1.9.0: pinned brief slugs
+grep -qF '"hubRole"?, "slug"?' seo-rules.md || { echo "FAIL: seo-rules topic.json contract must add optional slug alongside hubRole"; exit 1; }
+grep -qF 'slug_pinned' seo-rules.md || { echo "FAIL: seo-rules must document the hub 400 slug_pinned rejection"; exit 1; }
+grep -qF 'topic.json.slug' seo-rules.md || { echo "FAIL: seo-rules must tell the writer to use topic.json.slug verbatim"; exit 1; }
+grep -qF 'topic.slug' .claude/agents/writer.md || { echo "FAIL: writer must check topic.slug"; exit 1; }
 echo "agents.test.sh: all passed"
