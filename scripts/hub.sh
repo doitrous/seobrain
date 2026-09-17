@@ -51,6 +51,7 @@ check_contract_version() {
 
 case ${1:-} in
   plan)       api GET /api/plan | tee "${2:-/dev/null}" ;;
+  translate-queue) api GET /api/translate-queue | tee "${2:-/dev/null}" ;;
   run-start)  out=$(api POST /api/runs); jget .run.id <<<"$out" ;;
   run-finish) f=$(mktemp); node -e 'process.stdout.write(JSON.stringify({summary: JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"))}))' "$3" > "$f"; api PATCH "/api/runs/$2" "$f" ;;
   create-job) out=$(api POST /api/jobs "$2"); node -pe "JSON.stringify(JSON.parse(require('fs').readFileSync(0,'utf8')).job)" <<<"$out" ;;
@@ -64,5 +65,5 @@ case ${1:-} in
   # briefs for one site, ready to hand straight to `create-job` as `{"siteId", "briefId"}`.
   briefs)     api GET "/api/briefs?siteId=$2&status=approved" | tee "${3:-/dev/null}" ;;
   selftest)   check_contract_version; out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
-  *) echo "usage: hub.sh plan [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|briefs SITE_ID [OUTFILE]|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
+  *) echo "usage: hub.sh plan [OUTFILE]|translate-queue [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|briefs SITE_ID [OUTFILE]|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
 esac
