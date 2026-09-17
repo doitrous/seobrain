@@ -51,4 +51,11 @@ grep -qF '"hubRole"?, "slug"?' seo-rules.md || { echo "FAIL: seo-rules topic.jso
 grep -qF 'slug_pinned' seo-rules.md || { echo "FAIL: seo-rules must document the hub 400 slug_pinned rejection"; exit 1; }
 grep -qF 'topic.json.slug' seo-rules.md || { echo "FAIL: seo-rules must tell the writer to use topic.json.slug verbatim"; exit 1; }
 grep -qF 'topic.slug' .claude/agents/writer.md || { echo "FAIL: writer must check topic.slug"; exit 1; }
+# forced topics + refine mode ("dead" brain features the hub already feeds)
+grep -qF '`refine`' .claude/agents/writer.md || { echo "FAIL: writer must have a refine procedure"; exit 1; }
+grep -qF 'topic.json.brief' .claude/agents/writer.md || { echo "FAIL: writer refine must read topic.json.brief"; exit 1; }
+grep -qF 'MODE=refine' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: refine jobs must be dispatched with MODE=refine"; exit 1; }
+grep -qF 'forcedTopics' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: skill must create a job for every forcedTopics entry"; exit 1; }
+grep -qF 'forcedTopics' seo-rules.md || { echo "FAIL: seo-rules must document forcedTopics"; exit 1; }
+grep -qF '"brief"?' seo-rules.md || { echo "FAIL: seo-rules topic.json contract must add optional brief"; exit 1; }
 echo "agents.test.sh: all passed"
