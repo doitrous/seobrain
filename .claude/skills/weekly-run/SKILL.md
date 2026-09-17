@@ -17,6 +17,7 @@ Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` 
   `{ "runId": <RUN_ID>, "weekOf": <plan.weekOf>, "jobs": {} }`.
 - With `--resume`: read `state.json` and the existing site/job files; skip every job step already marked `done`.
   With `--resume`, §1 runs per site with `stillNeeded = neededThisWeek − (jobs for that site already in state.jobs)`: queued topics whose `topicId` is already in state are skipped, existing `site-<id>-topics.json` entries are reused before dispatching topic-scout again, and topic-scout is asked only for the remaining `k`. The hub also dedupes `POST /api/jobs` by (siteId, topicId) and by title per site, so a repeated create returns the existing job rather than a duplicate.
+- Read the translation-hold switch once: run `scripts/hub.sh translate-queue RUN_DIR/translate-queue.json` and set **TRANSLATION_HOLD** = its `.enabled`. When `true`, governed sites defer translation to after human approval (§6, §7, §7b). When `false` (the default), everything localizes inline exactly as before and §7b is skipped — so this whole flow is a no-op until the hub flips the flag.
 - Concurrency rule for every stage below: dispatch agents in parallel, **at most 4 in flight**; wait for the batch before the next.
 
 ## Agent failure policy (applies to every stage)
@@ -52,17 +53,32 @@ For every job with a draft and no passing audit:
 For every job with `steps.audit = "pass"` and no `steps.article`: run `scripts/hub.sh article <JOB_ID> RUN_DIR/job-<JOB_ID>/draft.json`, then set `steps.article = "done"`.
 
 ## 6. Localize
-For every such job and every language in `languages` other than the job's `lang`: dispatch **localizer** with `LANG`. On ok set `steps["localize:<LANG>"] = "done"`. On fail apply the failure policy (localizer exception).
+A site is **governed** when `site.requireApproval` or `site.draftOnly` is true, or `site.contentKind === "medical"`.
+- **TRANSLATION_HOLD off (default):** localize every site inline here. For every job with `steps.article = "done"` and every language in `languages` other than the job's `lang`, dispatch **localizer** with `LANG` (SOURCE defaults to `local`).
+- **TRANSLATION_HOLD on:** localize **non-governed sites only** here (same as above, non-governed jobs). On a governed site a human reviews, edits and approves the primary before anything is translated — so **do not localize governed jobs here**; §7b translates the approved copy after approval. (Posting a governed translation early is also refused by the hub with `409 primary_not_approved`.)
+
+On ok set `steps["localize:<LANG>"] = "done"`. On fail apply the failure policy (localizer exception).
 
 ## 7. Schedule
-For every job with `steps.article = "done"` and every language in `languages` other than the job's `lang` has `steps["localize:<LANG>"]` equal to `"done"` or `"failed"`: run `scripts/hub.sh schedule <JOB_ID>`, set `status = "scheduled"`.
+Schedule a job once its primary is stored and this run's localizations are settled:
+- **Non-governed site, or TRANSLATION_HOLD off:** `steps.article = "done"` **and** every language other than the job's `lang` has `steps["localize:<LANG>"]` equal to `"done"` or `"failed"`.
+- **Governed site with TRANSLATION_HOLD on:** as soon as `steps.article = "done"` — there are no localize steps this run.
+
+Run `scripts/hub.sh schedule <JOB_ID>`, set `status = "scheduled"`. With TRANSLATION_HOLD on, a governed job's **primary publishes on approval like any other** — it is not held. Its translations follow in §7b and the hub publishes each one as it lands (the primary is never delayed or duplicated).
+
+## 7b. Translate approved jobs (post-approval, global sweep)
+Only when TRANSLATION_HOLD is on. Governed sites' translations are produced **after** a human approves the primary and from that approved copy — so this pass sweeps the hub's whole queue (jobs whose primary is `scheduled` or already `published`), not just this run's jobs. Skip this section entirely on `--dry-run`.
+- Run `scripts/hub.sh translate-queue RUN_DIR/translate-queue.json`. If `.enabled` is `false` (feature off) or `.jobs` is empty, skip the rest of this section.
+- With `--site <slug>`, keep only entries whose `siteSlug` matches it.
+- For each entry `{ jobId, siteId, primaryLang, langs }` and each `LANG` in `langs`, dispatch **localizer** with `SOURCE=hub`, `SITE_ID=siteId`, `JOB_ID=jobId`, `LANG`, `PRIMARY_LANG=primaryLang` (max 4 in flight, same as every stage). The job is already `scheduled`; posting the translation adds it, and the hub publishes it alongside the primary once every language is present.
+- A localizer failure here is **not** a run failure: the job stays in the queue and reappears next sweep. Record each unfinished `{ jobId, lang }` under `translationsPending` in the summary. `RUN_DIR/site-<siteId>.json` exists for every enabled site (§0), so the localizer has its site context.
 
 Scheduling is not publishing. At the end of the review window the hub re-runs the audit in publish mode; a critical failure parks the job in `needs_review` with the failing codes instead of publishing it, and Omar clears it in the dashboard. Reviewer dates are stamped by the hub at that moment, never by this run.
 
 ## 8. Finish
 Write `RUN_DIR/summary.json`:
-`{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "jobs": <count>, "durationMinutes" }`
-`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement).
+`{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "translationsPending": [{ "jobId", "lang" }], "jobs": <count>, "durationMinutes" }`
+`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement). `translationsPending` (top level) is the §7b post-approval translations that did not complete this run — they retry next sweep.
 Then run `scripts/hub.sh run-finish <RUN_ID> RUN_DIR/summary.json`. Print the summary as a short table.
 
 ## Rules
