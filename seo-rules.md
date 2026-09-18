@@ -210,10 +210,29 @@ Every entry in `site.markets[]` is `{ country, lang, currency?, rules?, glossary
 - **`glossary`** (`{ sourceTerm: preferredWording }`): mandatory once it exists on the job's market — a source term never appears in the body when its preferred wording exists for it; use the preferred wording every time that concept comes up. Matched case-insensitively against the article's own `lang`. The hub warns `glossary_term_ignored` when a source term slips through anyway.
 - **`currency`**: shown next to any price in the body alongside the site's own currency (usually EGP) — "5,000 EGP (~650 SAR)". The hub warns `currency_mismatch` when a different currency code/symbol appears in the body without the job's own market currency alongside it.
 - **`cta`** (optional `{ text, url }`): added to the closing section alongside `site.cta` when set — one more sentence or link with the market's own CTA text/URL, never a replacement for the site's (see the `cta` rule above; the hub's `cta_present` check only looks for `site.cta`, so that one always stays).
-- **`keywordNotes`**: free text on how that market actually searches. Topic-scout reads it when phrasing and ranking candidate keywords for that market (see its own file), and — when otherwise-similar candidates could serve more than one market — prefers the site's market with the largest gap in topics assigned so far this batch (round-robin across `site.markets`; there is no separate hub field tracking this, it is counted locally for the run).
+- **`keywordNotes`**: free text on how that market actually searches. Topic-scout reads it when phrasing and ranking candidate keywords for that market (see its own file). Which market a candidate should serve is decided by `marketPlan` (see Country priority and weekly targets below); only when `marketPlan` leaves it open — every row `needed: null`, i.e. the site set no targets — does it fall back to the old local round-robin across `site.markets`.
 - **Localizer**, writing a `LANG` version rather than the job's own `market`: when `LANG` maps to exactly one entry in `site.markets`, that entry's `rules`/`glossary`/`currency`/`cta` apply. When `LANG` maps to several, the job's own `market` wins if that entry's `lang` is `LANG`; otherwise use the first `site.markets` entry whose `lang` is `LANG`.
 
 Writer, localizer and auditor all read the job's market entry before writing or checking a word. A market with no `rules`/`glossary`/`cta` simply falls back to the site defaults for those fields — nothing extra to add.
+
+## Country priority and weekly targets (hub contract 1.12.0)
+
+A `site.markets[]` entry may also carry `priority` (1–5, 1 first) and `weeklyTarget` (articles per week for that market). Omar sets both on the hub's `/sites/:id` → **Next week's run** card, and `/api/plan` turns them into a per-site `marketPlan`, already in priority order:
+
+```json
+"marketPlan": [
+  { "country": "SA", "lang": "ar", "priority": 1, "weeklyTarget": 3, "jobsThisWeek": 2, "needed": 1 },
+  { "country": "GB", "lang": "en", "priority": 2, "weeklyTarget": 1, "jobsThisWeek": 1, "needed": 0 },
+  { "country": "EG", "lang": "ar", "priority": null, "weeklyTarget": null, "jobsThisWeek": 0, "needed": null }
+]
+```
+
+- **Fill in order.** Give this week's slots to the rows top to bottom, `needed` articles each, before any row further down gets one.
+- **`needed: null` is not zero.** That market has no number of its own; it takes whatever the week has left, after every targeted row is satisfied. This is also what every market looks like on a site that never set targets — which is exactly the old behaviour, so `marketPlan` changes nothing until Omar fills it in.
+- **`needed: 0`** means that market is done for the week; move down the list rather than adding another one there.
+- **A rank never blocks a market.** Priority is an order, not a permission — an unranked market is still a legitimate place for an article once the ranked ones are satisfied.
+- **`neededThisWeek` is the site's own total** and already accounts for this: it is the sum of the `weeklyTarget`s once any market sets one, and `cadencePerWeek` otherwise. Never create more than it says; `marketPlan` decides *where* those articles go, not *how many*.
+- Publishing the same article in more than one language or for more than one country is not duplicate-content spam — Google's multi-regional guidance asks for hreflang, which the hub already writes. What its spam policies target is scaled content abuse: bulk translation that adds nothing. So a market that gets its own articles gets its own angle — that market's `rules`, `glossary`, `currency`, `cta` and `keywordNotes` are mandatory reading, per Market rules above.
 
 ## E-E-A-T and medical safety
 
@@ -284,7 +303,7 @@ On medical sites the writer's own audits run before any `checklist` step exists,
 
 One primary keyword per language per site. `scripts/hub.sh create-job` returns **HTTP 409** with `{"error":"keyword_taken","jobId":<n>}` when the keyword (normalized the same way as keyword placement) is already taken by a non-failed job on that site in that language. That is not a bug and not an agent contract violation: pick the next topic. `/api/plan` gives topic-scout each existing article's `primaryKeyword` so it can avoid the collision before asking.
 
-`create-job` also returns **HTTP 409** with `{"error":"topic_owned_by_other_site","ownerSiteId","ownerSiteSlug","targetUrl"}` when the topic ledger already has this keyword+language `owned` by a *different* site — the hub's cross-site guard (`/api/plan`'s `blockedTopics[]` lists these in advance; drop any candidate whose normalized keyword+language matches one of them before asking topic-scout to spend a search on it). Handled exactly like `keyword_taken`: not a bug, drop the topic, pick the next one.
+A keyword another of our own sites already owns is **no longer refused** (hub contract 1.11.0): `create-job` creates the job and, when a *different* site owns that (normalized keyword, language), the response carries a non-blocking `sharedWith: {"ownerSiteId","ownerSiteSlug","targetUrl"}` and the hub records the overlap as a `planned` ledger row. Nothing to handle — do not drop the topic; note the owning site in the run summary so the overlap is visible. Discovery still steers clear by default: `/api/plan`'s `blockedTopics[]` lists those keywords in advance, and topic-scout drops any candidate matching one before spending a search on it, so an overlap should only ever come from a topic Omar queued or briefed deliberately.
 
 `create-job` also returns **HTTP 400** with `{"error":"guide_quota_exceeded"}` when the site has had 3 consecutive `guide` jobs and is under its bottom-funnel quota (`sites.mixTargets.bottom`). Drop that topic's `pageType` down to something bottom-funnel-shaped (`cost`, `procedure`/`tour`, `help`, `tool`) if the keyword supports it, or pick the next topic — never retry the same `pageType` for that slot.
 
