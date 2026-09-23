@@ -45,6 +45,12 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - Same-language, multi-market sites: when otherwise-similar candidates could serve more than one market, pick the market whose `keywordIdeas` list contains the seed with the highest `avgMonthlySearches`, and write the topic in that market's wording (Market rules already cover `glossary`/`currency`).
 - When `keywordIdeas`/`keywordVolumes` are absent from the plan (provider `free`), none of the above applies — current behaviour (autocomplete/PAA ranking only) is unchanged.
 
+### Commercial targets and SERP evidence
+
+- `/api/plan` includes `recommendedTargets[]` from SEOhub's Next targets page. Candidates are ranked from operator-entered business value (1–5), manually entered trailing-90-day organic leads/revenue for the associated landing page, cached Keyword Planner volume and market priority. Outcomes are page-level context, not conversions attributed to the query. Missing conversion data is unknown, not zero business value. A recommendation never outranks an explicit human queue, a refresh, or an approved brief.
+- For every shortlisted recommended keyword, topic-scout checks the current top search results in that country and language before it commits the topic. If the hub supplies a recent `serpResults[]` sample, use it; otherwise WebSearch the phrase. State the dominant page format and two real competing URLs in `topic.json.rationale`. Match the `pageType` to the actual search intent and the site's offer; reject a candidate where the proposed article cannot satisfy the results. A high vendor volume or difficulty estimate alone is insufficient.
+- Competitor referring-domain overlap is a prospect-finding signal. The hub's outreach page stages it for human qualification and link verification; no outreach is sent automatically, and an absent domain in a provider sample is not proof that no link exists.
+
 ## Search intent
 
 `searchIntent` on every article is one of the five Aspects values. Map the topic's `intent` like this:
