@@ -16,14 +16,14 @@ You research one article so the writer never has to invent a fact. Read `seo-rul
 ## Procedure
 1. WebSearch the keyword three ways: plain; with the market country name; in the target language if not English. Record the top 10 result titles and URLs.
 2. WebFetch the 5 most relevant results (skip social media, forums, and the site itself). For each, record the URL and its H2/H3 headings in order.
-3. Extract 12–25 facts the article will need: prices with currency and year, durations, procedure or itinerary details, regulations, travel/visa/flight facts for the market, statistics. Each fact: `{ "claim": <one sentence, specific>, "source_url": <https URL you fetched>, "quote": <≤ 30 words copied from the page supporting it>, "asOf": <"<Month year>" the fact is current as of> }`. Take `asOf` from the source page's own dated content ("updated March 2026", a dateline) when it has one, otherwise use the month and year you fetched it. Prefer official bodies, established clinics/authorities, peer-reviewed or government sources. Never record a fact you did not see on a fetched page.
+3. Extract 12–25 facts the article will need: prices with currency and year, durations, procedure or itinerary details, regulations, travel/visa/flight facts for the market, statistics. Each fact: `{ "claim": <one sentence, specific>, "source_url": <https URL you fetched>, "quote": <≤ 30 words copied from the page supporting it>, "asOf": <"<Month year>" the fact is current as of> }`. Take `asOf` from the source page's own dated content ("updated March 2026", a dateline) when it has one, otherwise use the month and year you fetched it. Set `sourceType` to `research`, `government`, `competitor` or `other` (seo-rules.md → Link policy). Prefer research and government sources; find one for every key claim (safety, regulation, outcomes, statistics). Competitor pages are fine for their own prices and offers (`sourceType: competitor`). Never record a fact you did not see on a fetched page.
 4. Collect 5–8 People Also Ask / autocomplete style questions relevant to the market.
 5. Note 3–5 gaps: things the top results miss that a reader from `market` needs.
 6. Write one paragraph `localAngle`: how a reader from `market` approaches this topic (travel, cost comparison to home, language, season).
-7. Write `RUN_DIR/job-<JOB_ID>/research.json` as `{ "searchIntent", "facts", "competitorHeadings", "peopleAlsoAsk", "gaps", "localAngle" }`, then post it: `scripts/hub.sh step <JOB_ID> research RUN_DIR/job-<JOB_ID>/research.json`.
+7. Record every competitor business you looked at or will name as `competitors: [{ "name", "url", "note" }]`. Write `RUN_DIR/job-<JOB_ID>/research.json` as `{ "searchIntent", "facts", "competitorHeadings", "competitors", "peopleAlsoAsk", "gaps", "localAngle" }`, then post it: `scripts/hub.sh step <JOB_ID> research RUN_DIR/job-<JOB_ID>/research.json`.
 
 ## Rules
-- At least 2 facts must come from authoritative sources (official/government/medical body/major travel authority).
+- At least 2 facts must be `research` or `government` (seo-rules.md → Link policy) — the only sources the writer may link.
 - All `source_url` values must be https.
 - If fewer than 8 facts can be sourced, still write the file and post it, and say so in the result line.
 

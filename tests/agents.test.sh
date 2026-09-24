@@ -58,4 +58,7 @@ grep -qF 'MODE=refine' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: refin
 grep -qF 'forcedTopics' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: skill must create a job for every forcedTopics entry"; exit 1; }
 grep -qF 'forcedTopics' seo-rules.md || { echo "FAIL: seo-rules must document forcedTopics"; exit 1; }
 grep -qF '"brief"?' seo-rules.md || { echo "FAIL: seo-rules topic.json contract must add optional brief"; exit 1; }
+grep -qF '## Link policy' seo-rules.md || { echo "FAIL: seo-rules must carry the research/government link policy"; exit 1; }
+grep -qF 'competitorLinks' .claude/agents/writer.md || { echo "FAIL: writer must record competitorLinks"; exit 1; }
+grep -qF 'disallowed_link' .claude/agents/auditor.md || { echo "FAIL: auditor must flag disallowed links"; exit 1; }
 echo "agents.test.sh: all passed"
