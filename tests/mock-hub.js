@@ -23,7 +23,7 @@ const server = http.createServer((req, res) => {
     if (down > 0) { down--; return send(500, { error: 'down' }) }
     if (req.url === '/api/contracts/version') return send(200, { version: contractVersion })
     if (req.url === '/api/plan') { if (flaky > 0) { flaky--; return send(500, { error: 'boom' }) } return send(200, { weekOf: '2026-08-31', sites: [] }) }
-    if (req.url === '/api/translate-queue') return send(200, { enabled: true, jobs: [{ jobId: 42, siteId: 1, siteSlug: 's', primaryLang: 'en', langs: ['fr'] }] })
+    if (req.url === '/api/translate-queue') return send(200, { enabled: true, jobs: [{ jobId: 42, siteId: 1, siteSlug: 's', primaryLang: 'en', sourceLocale: 'en-GB', locales: [{ locale: 'fr-FR', lang: 'fr', country: 'FR', rework: false }], langs: ['fr'] }] })
     if (req.url === '/api/runs' && req.method === 'POST') return send(201, { run: { id: 7 } })
     if (/^\/api\/runs\/\d+$/.test(req.url) && req.method === 'PATCH') return send(200, { run: { id: 7, summary: log.at(-1).body.summary } })
     if (req.url === '/api/jobs' && req.method === 'POST') return send(201, { job: { id: 42, state: 'planned', weekOf: '2026-08-31' } })

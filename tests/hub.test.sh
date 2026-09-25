@@ -23,7 +23,7 @@ scripts/hub.sh audit 42 | grep -q '"pass":false' || fail audit
 scripts/hub.sh audit 42 "$T/audit.json" >/dev/null && grep -q '"pass":false' "$T/audit.json" || fail "audit OUTFILE"
 scripts/hub.sh plan "$T/plan.json" >/dev/null && grep -q '"weekOf"' "$T/plan.json" || fail "plan OUTFILE"
 scripts/hub.sh translate-queue | grep -q '"enabled":true' || fail translate-queue
-scripts/hub.sh translate-queue "$T/tq.json" >/dev/null && grep -q '"primaryLang":"en"' "$T/tq.json" || fail "translate-queue OUTFILE"
+scripts/hub.sh translate-queue "$T/tq.json" >/dev/null && grep -q '"sourceLocale":"en-GB"' "$T/tq.json" || fail "translate-queue OUTFILE"
 echo '{"lang":"en","title":"T","slug":"t"}' > "$T/article.json"; scripts/hub.sh article 42 "$T/article.json" | grep -q '"article"' || fail article
 echo '{"lang":"en","title":"T"}' > "$T/article-bad.json"
 scripts/hub.sh article 42 "$T/article-bad.json" >/dev/null 2>"$T/errart" && fail "article missing slug should exit 1"
@@ -76,4 +76,7 @@ curl -s localhost:3999/__down -H 'Authorization: Bearer tok' >/dev/null
 code=0; scripts/hub.sh selftest >/dev/null 2>"$T/errdown" || code=$?
 [ "$code" -eq 3 ] || fail "exhausted 5xx should exit 3 (got $code)"
 grep -q 'HTTP 500' "$T/errdown" || fail "exhaustion error missing HTTP 500"
+# translate.sh: valid bash, and it leaves before starting Claude when nothing is queued
+bash -n scripts/translate.sh || fail "translate.sh syntax"
+grep -q '\[ "\${n:-0}" -gt 0 \] || exit 0' scripts/translate.sh || fail "translate.sh must exit when the queue is empty"
 echo "hub.test.sh: all passed"
