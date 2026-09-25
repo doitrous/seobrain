@@ -25,7 +25,7 @@ grep -qF '`refresh`' .claude/agents/writer.md || { echo "FAIL: writer must have 
 grep -qF 'hub.sh articles' .claude/agents/writer.md || { echo "FAIL: writer refresh must fetch the published article"; exit 1; }
 grep -qF 'articles)' scripts/hub.sh || { echo "FAIL: hub.sh must expose the articles command"; exit 1; }
 grep -qF 'checklist_gap' .claude/agents/writer.md || { echo "FAIL: writer revise must handle checklist_gap"; exit 1; }
-grep -qF 'checklist.json' .claude/agents/localizer.md || { echo "FAIL: localizer must read sections from checklist.json"; exit 1; }
+grep -qF 'Take `sections` from the source row' .claude/agents/localizer.md || { echo "FAIL: localizer must take sections from the approved source row"; exit 1; }
 ! grep -rq sectionsOmitted seo-rules.md .claude || { echo "FAIL: sectionsOmitted is gone; sections comes from the writer"; exit 1; }
 grep -q 'hub.sh step <JOB_ID> checklist' .claude/agents/auditor.md || { echo "FAIL: auditor must post the checklist step"; exit 1; }
 grep -q 'checklist_gap' .claude/agents/auditor.md || { echo "FAIL: auditor must define checklist_gap"; exit 1; }
@@ -58,4 +58,15 @@ grep -qF 'MODE=refine' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: refin
 grep -qF 'forcedTopics' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: skill must create a job for every forcedTopics entry"; exit 1; }
 grep -qF 'forcedTopics' seo-rules.md || { echo "FAIL: seo-rules must document forcedTopics"; exit 1; }
 grep -qF '"brief"?' seo-rules.md || { echo "FAIL: seo-rules topic.json contract must add optional brief"; exit 1; }
+grep -qF '## Link policy' seo-rules.md || { echo "FAIL: seo-rules must carry the research/government link policy"; exit 1; }
+grep -qF 'competitorLinks' .claude/agents/writer.md || { echo "FAIL: writer must record competitorLinks"; exit 1; }
+grep -qF 'disallowed_link' .claude/agents/auditor.md || { echo "FAIL: auditor must flag disallowed links"; exit 1; }
+grep -qF '## Localization' seo-rules.md || { echo "FAIL: seo-rules must carry the Localization rules"; exit 1; }
+grep -qF 'locale_near_duplicate' seo-rules.md || { echo "FAIL: seo-rules must name locale_near_duplicate"; exit 1; }
+grep -qF 'sourceLocale' .claude/agents/writer.md || { echo "FAIL: writer must write only the source locale"; exit 1; }
+grep -qF 'LOCALE' .claude/agents/localizer.md || { echo "FAIL: localizer must take a LOCALE"; exit 1; }
+grep -qF 'WebSearch' .claude/agents/localizer.md || { echo "FAIL: localizer must research local facts"; exit 1; }
+grep -qF -- '--translate-only' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: weekly-run must support --translate-only"; exit 1; }
+grep -qF 'LOCALIZE_DAILY_MAX' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: weekly-run must cap daily localizations"; exit 1; }
+grep -qF 'omit `locale`' .claude/agents/writer.md || { echo "FAIL: writer must omit locale when topic.lang is not the site source language"; exit 1; }
 echo "agents.test.sh: all passed"

@@ -5,7 +5,7 @@ f=.claude/skills/weekly-run/SKILL.md
 [ -f "$f" ] || { echo "FAIL: skill missing"; exit 1; }
 grep -q '^name: weekly-run$' "$f" || { echo "FAIL: skill name"; exit 1; }
 for a in topic-scout researcher writer auditor localizer; do grep -q "$a" "$f" || { echo "FAIL: skill must dispatch $a"; exit 1; }; done
-for s in 'hub.sh plan' 'hub.sh run-start' 'hub.sh create-job' 'hub.sh article' 'hub.sh schedule' 'hub.sh run-finish' 'state.json' '--resume' 'at most 4' 'Agent failure policy' '"failed"' 'missingLanguages' 'topicId' 'skippedDuplicates' 'exit code 3' 'queuedTopics[].id' 'checklist' 'keyword_taken' 'refresh' 'refreshOf' 'MODE=refresh' 'checklist: posted' 'hub.sh articles' 'hubRole' 'slug' 'forcedTopics' 'MODE=refine'; do
+for s in 'hub.sh plan' 'hub.sh run-start' 'hub.sh create-job' 'hub.sh article' 'hub.sh schedule' 'hub.sh run-finish' 'state.json' '--resume' 'at most 4' 'Agent failure policy' '"failed"' 'translationsPending' 'LOCALIZE_DAILY_MAX' 'topicId' 'skippedDuplicates' 'exit code 3' 'queuedTopics[].id' 'checklist' 'keyword_taken' 'refresh' 'refreshOf' 'MODE=refresh' 'checklist: posted' 'hub.sh articles' 'hubRole' 'slug' 'forcedTopics' 'MODE=refine'; do
   grep -qF -- "$s" "$f" || { echo "FAIL: skill must mention '$s'"; exit 1; }
 done
 # contract 1.9.0: a brief-based job's topic.json must copy the pinned slug the same way it already copies hubRole

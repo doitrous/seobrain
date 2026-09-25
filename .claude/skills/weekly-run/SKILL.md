@@ -7,7 +7,7 @@ description: Produce this week's SEO articles for every enabled site — plan fr
 
 You are the orchestrator. You never write article text yourself; you dispatch the agents and keep state. Model: this session runs as Opus 4.8 (`claude --model claude-opus-4-8`).
 
-Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` (only that site), `--dry-run` (plan and choose topics, create no jobs).
+Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` (only that site), `--dry-run` (plan and choose topics, create no jobs), `--translate-only` (run §0 then only §7b — the daily localization run).
 
 ## 0. Setup
 - Run `date +%F`; that is DATE. RUN_DIR is `runs/<date>`. Run `mkdir -p RUN_DIR`.
@@ -18,11 +18,11 @@ Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` 
   `{ "runId": <RUN_ID>, "weekOf": <plan.weekOf>, "jobs": {} }`.
 - With `--resume`: read `state.json` and the existing site/job files; skip every job step already marked `done`.
   With `--resume`, §1 runs per site with `stillNeeded = neededThisWeek − (jobs for that site already in state.jobs)`: queued topics whose `topicId` is already in state are skipped, existing `site-<id>-topics.json` entries are reused before dispatching topic-scout again, and topic-scout is asked only for the remaining `k`. The hub also dedupes `POST /api/jobs` by (siteId, topicId) and by title per site, so a repeated create returns the existing job rather than a duplicate.
-- Read the translation-hold switch once: run `scripts/hub.sh translate-queue RUN_DIR/translate-queue.json` and set **TRANSLATION_HOLD** = its `.enabled`. When `true`, governed sites defer translation to after human approval (§6, §7, §7b). When `false` (the default), everything localizes inline exactly as before and §7b is skipped — so this whole flow is a no-op until the hub flips the flag.
+- Run `scripts/hub.sh translate-queue RUN_DIR/translate-queue.json`; localization always happens after approval (hub contract 1.17.0). With `--translate-only`, skip `run-start`, `state.json` and §1–§7 and go straight to §7b.
 - Concurrency rule for every stage below: dispatch agents in parallel, **at most 4 in flight**; wait for the batch before the next.
 
 ## Agent failure policy (applies to every stage)
-An agent has failed when it ends without a RESULT: ok line or its expected output file is missing. Retry that agent once with the same inputs. On the second failure set status = "failed" and error = <the RESULT: fail reason or "no result">, save state.json, and skip the job for the rest of the run; it appears under failed in the summary. The only exception is the localizer: on its second failure set steps["localize:<LANG>"] = "failed" instead, keep status, and continue; the job still ships with its primary version and the language is listed under missingLanguages.
+An agent has failed when it ends without a RESULT: ok line or its expected output file is missing. Retry that agent once with the same inputs. On the second failure set status = "failed" and error = <the RESULT: fail reason or "no result">, save state.json, and skip the job for the rest of the run; it appears under failed in the summary. The only exception is the localizer (§7b): on its second failure the version stays in the hub's translate queue and is listed under translationsPending; nothing is marked failed.
 
 ## 1. Topics
 For each site with `neededThisWeek > 0` **or a non-empty `forcedTopics`** (respecting `--site`):
@@ -58,33 +58,29 @@ For every job with a draft and no passing audit:
 For every job with `steps.audit = "pass"` and no `steps.article`: run `scripts/hub.sh article <JOB_ID> RUN_DIR/job-<JOB_ID>/draft.json`, then set `steps.article = "done"`.
 
 ## 6. Localize
-A site is **governed** when `site.requireApproval` or `site.draftOnly` is true, or `site.contentKind === "medical"` (all three are in `site-<id>.json`).
-- **TRANSLATION_HOLD off (default), or a non-governed site:** localize inline here. For every job with `steps.article = "done"` and every language in `languages` other than the job's `lang`, dispatch **localizer** with `LANG` (SOURCE defaults to `local`). **Arabic-first:** when `ar` is in that list and `site.languages[0]` (the site's primary language) is `ar`, dispatch its localizer before the others — a localize failure is retried once and then only marks that language `missingLanguages` (Agent failure policy), so ordering Arabic first means a partial run drops a secondary language, never the primary one.
-- **TRANSLATION_HOLD on and a governed site:** do **not** localize here. A human reviews, edits and approves the primary before anything is translated; §7b translates the approved copy after approval. (Posting a governed translation early is also refused by the hub with `409 primary_not_approved`.)
-
-On ok set `steps["localize:<LANG>"] = "done"`. On fail apply the failure policy (localizer exception).
+Never localize here — the writer writes only the source locale; §7b localizes after approval.
 
 ## 7. Schedule
-Schedule a job once its primary is stored and this run's localizations are settled:
-- **Non-governed site, or TRANSLATION_HOLD off:** `steps.article = "done"` **and** every language other than the job's `lang` has `steps["localize:<LANG>"]` equal to `"done"` or `"failed"`.
-- **Governed site with TRANSLATION_HOLD on:** as soon as `steps.article = "done"` — there are no localize steps this run.
+Schedule a job as soon as `steps.article = "done"`.
 
-Run `scripts/hub.sh schedule <JOB_ID>`, set `status = "scheduled"`. With TRANSLATION_HOLD on, a governed job's **primary publishes on approval like any other** — it is not held; its translations follow in §7b and the hub publishes each as it lands (the primary is never delayed or duplicated).
+Run `scripts/hub.sh schedule <JOB_ID>`, set `status = "scheduled"`. The source version **publishes on approval like any other** — it is not held; its other locales follow in §7b and the hub publishes each as it lands (the source is never delayed or duplicated).
 - **HTTP 409 `{"error":"publish_blocked","reason":...}`** (hub-wide pause, this site's pause, its draft-only ramp, or `approval_required` — see seohub `docs/contracts/README.md`) is expected, not a failure: record `state.jobs[JOB_ID].blockedReason = reason`, leave `status` as it was, and list the job under `blocked` in the summary (§8). `approval_required` in particular just means Omar (or `POST /api/jobs/:id/approve`) has not cleared this job yet — it is not this run's job to clear it, and it is not retried on `--resume` until the reason changes on the hub side. Do not retry and do not apply the Agent failure policy.
 
 Scheduling is not publishing. At the end of the review window the hub re-runs the audit in publish mode; a critical failure parks the job in `needs_review` with the failing codes instead of publishing it, and Omar clears it in the dashboard. Reviewer dates are stamped by the hub at that moment, never by this run.
 
-## 7b. Translate approved jobs (post-approval, global sweep)
-Only when TRANSLATION_HOLD is on. Governed sites' translations are produced **after** a human approves the primary and from that approved copy — so this pass sweeps the hub's whole queue (jobs whose primary is `scheduled` or already `published`), not just this run's jobs. Skip this section entirely on `--dry-run`.
-- Reuse `RUN_DIR/translate-queue.json` from §0 (or re-run `scripts/hub.sh translate-queue RUN_DIR/translate-queue.json`). If `.enabled` is `false` (feature off) or `.jobs` is empty, skip the rest of this section.
+## 7b. Localize approved jobs (post-approval, global sweep)
+Every non-source locale is written **after** a human approves the source version and from that approved copy (seo-rules.md → Localization) — so this pass sweeps the hub's whole queue (jobs whose source is `scheduled` or already `published`), not just this run's jobs. Skip this section entirely on `--dry-run`.
+- Reuse `RUN_DIR/translate-queue.json` from §0 (or re-run `scripts/hub.sh translate-queue RUN_DIR/translate-queue.json`). If `.jobs` is empty, skip the rest of this section.
 - With `--site <slug>`, keep only entries whose `siteSlug` matches it.
-- For each entry `{ jobId, siteId, primaryLang, langs }` and each `LANG` in `langs`, dispatch **localizer** with `SOURCE=hub`, `SITE_ID=siteId`, `JOB_ID=jobId`, `LANG`, `PRIMARY_LANG=primaryLang` (max 4 in flight, same as every stage). The job is already `scheduled` or `published`; posting the translation adds it, and the hub's cron trickle-sweep publishes it once it lands (the primary is never delayed or duplicated). `RUN_DIR/site-<siteId>.json` exists for every enabled site (§0 writes one per `plan.sites`), so the localizer has its market/site context.
-- A localizer failure here is **not** a run failure: the job stays in the queue and reappears next sweep. Record each unfinished `{ jobId, lang }` under `translationsPending` in the summary.
+- For each entry `{ jobId, siteId, sourceLocale, locales }` and each `{ locale, lang, country, rework, issues }` in `.locales`, dispatch **localizer** with `SITE_ID=siteId`, `JOB_ID=jobId`, `LOCALE=locale`, `SOURCE=hub`, `SOURCE_LOCALE=sourceLocale` and, when `rework`, `REWORK_ISSUES=issues`. Max 4 in flight. Rework entries go first. `RUN_DIR/site-<siteId>.json` must exist: when it does not (a `--translate-only` run), run `scripts/hub.sh plan RUN_DIR/plan.json` once and write the per-site files as §0 does.
+- **Daily cap:** stop dispatching once `LOCALIZE_DAILY_MAX` (env, default 40) versions were dispatched today (count the `localize-*.json` step files written under `runs/<date>/`); leftovers stay queued for tomorrow.
+- The hub publishes a posted version on its next cron tick if its own publish audit passes; a failing one comes back in the queue as `rework`.
+- A localizer failure here is **not** a run failure: the version stays in the queue and reappears next sweep. Record each unfinished `{ jobId, locale }` under `translationsPending` in the summary.
 
 ## 8. Finish
 Write `RUN_DIR/summary.json`:
-`{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "blocked": [{ "jobId", "reason" }], "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "missingLanguages": [{ "jobId", "lang" }], "skippedDuplicates": [titles] }], "translationsPending": [{ "jobId", "lang" }], "jobs": <count>, "durationMinutes" }`
-`missingLanguages` is derived from `steps["localize:<LANG>"] = "failed"`; `failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `blocked` from `state.jobs[JOB_ID].blockedReason` set in §7 — the job stays wherever it was, this is not a failure, the hub's gate will let it through on a later run once the reason clears; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement). `translationsPending` (top level) is the §7b post-approval translations that did not complete this run — they retry next sweep.
+`{ "weekOf", "sites": [{ "siteId", "name", "needed", "created", "scheduled", "blocked": [{ "jobId", "reason" }], "needsReview": [jobIds], "failed": [{ "jobId", "error" }], "skippedDuplicates": [titles] }], "translationsPending": [{ "jobId", "locale" }], "jobs": <count>, "durationMinutes" }`
+`failed` from `status = "failed"`; `needsReview` from `status = "needs_review"`; `blocked` from `state.jobs[JOB_ID].blockedReason` set in §7 — the job stays wherever it was, this is not a failure, the hub's gate will let it through on a later run once the reason clears; `skippedDuplicates` from the titles dropped on 409 in §1 (the original and, when it also collided, the replacement). `translationsPending` (top level) is the §7b post-approval translations that did not complete this run — they retry next sweep.
 Then run `scripts/hub.sh run-finish <RUN_ID> RUN_DIR/summary.json`. Print the summary as a short table.
 
 ## Rules
@@ -92,4 +88,4 @@ Then run `scripts/hub.sh run-finish <RUN_ID> RUN_DIR/summary.json`. Print the su
 - If `scripts/hub.sh` fails on a 4xx (exit code 1; stderr carries `HTTP <code>` then the body), read the error body: it is a contract violation in the agent's output (missing key, bad lang). Re-dispatch the responsible agent at most once with the error body quoted; on a second 4xx apply the failure policy. A 4xx from `create-job`, `schedule` or `run-finish` has no agent: mark the job `failed` with the body (for `run-finish`, print the error and stop). **Four exceptions, none a contract violation:** `HTTP 409` `keyword_taken` from `create-job`, `HTTP 409` `topic_owned_by_other_site` from `create-job`, and `HTTP 400` `guide_quota_exceeded` from `create-job` — all three skip the topic and ask for a replacement (§1), mark nothing failed; and `HTTP 409` `publish_blocked` from `schedule` — the hub's publish gate, not a run failure: record the reason and move on (§7). Never hand-edit article content yourself.
 - If `scripts/hub.sh selftest` aborts with a contract major mismatch (its own exit 1, message names the hub's and brain's major versions), stop the run — do not attempt any of the above; the fix is updating seobrain for the new contract, not retrying.
 - The hub is unreachable when `scripts/hub.sh` exit code 3 is returned (5xx after retries). Save `state.json` and stop with `RESULT: hub unreachable — rerun with --resume`.
-- Agent prompts are short: name the agent's inputs (RUN_DIR, SITE_ID, JOB_ID, MODE/LANG/NEEDED) and nothing else; the agent files carry the instructions.
+- Agent prompts are short: name the agent's inputs (RUN_DIR, SITE_ID, JOB_ID, MODE/LOCALE/NEEDED) and nothing else; the agent files carry the instructions.
