@@ -31,7 +31,7 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 
 ## Localization (owner rule, 2026-09-25 — hard requirements)
 
-- A site has one `sourceLocale` (`site.sourceLocale`, e.g. `en-EG`). The writer writes only that version; Omar edits and approves it. Every other locale is written **after** approval by the localizer, from the approved copy (hub contract 1.17.0).
+- A site has one `sourceLocale` (`site.sourceLocale`, e.g. `en-EG`). Topic-scout places every new topic in it (lang + country of the source locale); other markets never get jobs of their own. The writer writes only that version; Omar edits and approves it. Every other locale is written **after** approval by the localizer, from the approved copy (hub contract 1.17.0).
 - Each localized version is a **rewrite for a reader in that country**, not a translation of the words:
   - its own native primary keyword for that locale — from `site.keywordIdeas`/`keywordVolumes` for that market when present, else from SERP research in that locale — posted as `keyword`;
   - prices in the local currency (the market's `currency`), with the source currency beside it where it helps;
