@@ -68,4 +68,5 @@ grep -qF 'LOCALE' .claude/agents/localizer.md || { echo "FAIL: localizer must ta
 grep -qF 'WebSearch' .claude/agents/localizer.md || { echo "FAIL: localizer must research local facts"; exit 1; }
 grep -qF -- '--translate-only' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: weekly-run must support --translate-only"; exit 1; }
 grep -qF 'LOCALIZE_DAILY_MAX' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: weekly-run must cap daily localizations"; exit 1; }
+grep -qF 'omit `locale`' .claude/agents/writer.md || { echo "FAIL: writer must omit locale when topic.lang is not the site source language"; exit 1; }
 echo "agents.test.sh: all passed"
