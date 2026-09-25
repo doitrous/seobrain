@@ -29,6 +29,20 @@ Files live in `runs/<date>/job-<id>/`. Every JSON file is posted to the hub verb
 - `research.json.facts[].sourceType` is `research`, `government`, `competitor` or `other`. Only `research`/`government` facts may carry a link; `competitor` facts are attributed by name in the text; `other` facts need a research/government source for the same claim or are softened/dropped.
 - Internal links to the site's own pages are unaffected.
 
+## Localization (owner rule, 2026-09-25 — hard requirements)
+
+- A site has one `sourceLocale` (`site.sourceLocale`, e.g. `en-EG`). The writer writes only that version; Omar edits and approves it. Every other locale is written **after** approval by the localizer, from the approved copy (hub contract 1.17.0).
+- Each localized version is a **rewrite for a reader in that country**, not a translation of the words:
+  - its own native primary keyword for that locale — from `site.keywordIdeas`/`keywordVolumes` for that market when present, else from SERP research in that locale — posted as `keyword`;
+  - prices in the local currency (the market's `currency`), with the source currency beside it where it helps;
+  - local logistics: visa rules for that nationality, flights from that country's cities, how to get there;
+  - local examples, products and items readers there know;
+  - the local register and slang readers there like to read (Saudi, Egyptian, Gulf, Levantine, Maghrebi, Nigerian English, British vs American English…), professional on medical sites.
+- Keep the approved version's theme, H2 order, the meaning of every claim, its tone and the CTA.
+- Every new fact is researched and verified under the Link policy (research/government links only; competitors named, never linked, recorded in `competitorLinks`).
+- Two versions in the same language (en-GB, en-US, en-EG) must differ substantively: the hub fails `locale_near_duplicate` (critical) when they are too close, and the job comes back through the translate queue as `rework` with its issues.
+- Post with `lang`, `locale` and `keyword`. The hub refuses a non-source locale before approval with 409 `source_not_approved` — that is expected, not an error to retry.
+
 ## Writing rules
 
 - `introduction` is a separate field, not the first paragraph of `bodyMd`. Write it as 40–60 words (Arabic 30–60) that answer the search intent, contain the primary keyword in the same word order, and read as the article's opening. Its **first sentence starts with the primary keyword**. `bodyMd` still opens with a paragraph after the H1 — the introduction field is what the site renders as the lede and what the hub falls back to for `meta_description` and the OG description.
@@ -303,7 +317,7 @@ List **the site's planned languages** for this article — every language this r
 
 Severities are `critical` and `warning`. `pass` is false when any check is `critical`; warnings are reported and never block. `readiness` is `critical` when any critical fails, `needs_improvement` when only warnings fail, `ready` when nothing fails.
 
-Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, internal_link_count, internal_link_missing, competitor_link, external_http, faq_count, title_duplicate, banned_phrase, thin_content, intro_keyword, image_alt, structured_data_valid, near_duplicate_site`; also `slug_franco` on a draft whose slug is not already live.
+Deterministic (hub), critical: `keyword_title, keyword_h1, keyword_meta, meta_title_length, meta_description_length, h1_count, heading_skip, word_count, internal_link_count, internal_link_missing, competitor_link, locale_keyword_missing, locale_near_duplicate, external_http, faq_count, title_duplicate, banned_phrase, thin_content, intro_keyword, image_alt, structured_data_valid, near_duplicate_site`; also `slug_franco` on a draft whose slug is not already live.
 Deterministic (hub), warning: `keyword_h2, paragraph_length, keyword_stuffing, meta_description_duplicate, intro_length, secondary_keywords_used, og_fields, hreflang_reciprocal, cta_present, near_duplicate_portfolio, title_length_aim, intro_pillar_link, bold_per_paragraph, caption_missing, glossary_term_ignored, currency_mismatch, slug_ascii`.
 `slug_ascii` — the slug still has non-Latin characters in it, so it was never translated (see Internal links and slugs). Rewrite it as the English wording of the keyword; every language version then shares that one slug. A warning rather than a critical so an article already published under a non-Latin slug stays publishable — changing a live slug breaks every inbound link to it.
 `slug_franco` (hub contract 1.14.0) — the slug is Latin but the words are transliterated Arabic (franco-Arabic): a known transliteration such as `zeraat`, `shaar`, `fi`, `masr`, `se3r`, or an Arabizi digit standing in for a letter (`3ilag`, `ta7t`). Replace it with the English translation of the keyword — `hair-transplant-egypt`, not `zeraat-el-shaar-fi-masr`. Critical on a draft (the audit loop must fix it before posting); a warning at publish time and when the slug is already live (a refresh keeps its slug byte-identical), so a published article is never blocked by it.
