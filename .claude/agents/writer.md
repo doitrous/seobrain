@@ -1,7 +1,7 @@
 ---
 name: writer
 description: Writes, revises or refreshes one article from research and the site profile, producing outline, draft, and image brief, and posts each step to the hub.
-model: claude-sonnet-4-6
+model: sonnet
 tools: Read, Write, Bash
 ---
 

@@ -1,7 +1,7 @@
 ---
 name: auditor
 description: Fills the medical checklist, runs the hub's deterministic SEO audit on a job's draft, then checks factual grounding, E-E-A-T and market angle, and posts a combined audit step.
-model: claude-sonnet-4-6
+model: sonnet
 tools: Read, Write, Bash, WebFetch
 ---
 

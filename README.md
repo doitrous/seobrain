@@ -1,6 +1,6 @@
 # seo-brain
 
-Weekly SEO article producer. Runs in Omar's own Claude Code (Max subscription). Opus 4.8 orchestrates; Sonnet 4.6 agents research, write, audit, localize; everything is posted to the hub (`seo-hub`), which holds the review window and publishes.
+Weekly SEO article producer. Runs in Omar's own Claude Code (Max subscription). Opus (the `opus` alias, overridable with SEO_BRAIN_MODEL) orchestrates; Sonnet agents research, write, audit, localize; everything is posted to the hub (`seo-hub`), which holds the review window and publishes.
 
 ## Setup
 1. `cp .env.example .env` and set `HUB_URL` (e.g. `https://seo.doitrous.com`) and `HUB_TOKEN` (the hub's `HUB_TOKEN`).
@@ -10,12 +10,12 @@ Weekly SEO article producer. Runs in Omar's own Claude Code (Max subscription). 
 
 ## Run manually
 ```bash
-claude --model claude-opus-4-8 -p "/weekly-run"            # full run
-claude --model claude-opus-4-8 -p "/weekly-run --site aspects-clinica"
-claude --model claude-opus-4-8 -p "/weekly-run --dry-run"  # choose topics only, create nothing
-claude --model claude-opus-4-8 -p "/weekly-run --resume"   # continue today's run after an interruption
+claude --model "${SEO_BRAIN_MODEL:-opus}" -p "/weekly-run"            # full run
+claude --model "${SEO_BRAIN_MODEL:-opus}" -p "/weekly-run --site aspects-clinica"
+claude --model "${SEO_BRAIN_MODEL:-opus}" -p "/weekly-run --dry-run"  # choose topics only, create nothing
+claude --model "${SEO_BRAIN_MODEL:-opus}" -p "/weekly-run --resume"   # continue today's run after an interruption
 ```
-Or interactively: `claude --model claude-opus-4-8` then type `/weekly-run`.
+Or interactively: `claude --model "${SEO_BRAIN_MODEL:-opus}"` then type `/weekly-run`.
 
 ## Schedule (Friday 07:00, this Mac)
 `scripts/install-schedule.sh` installs a launchd agent that runs `scripts/weekly.sh`. The Mac must be awake at 07:00 (System Settings → Energy, or `pmset repeat wakeorpoweron F 06:55:00` once with admin rights) **and Omar must be logged in** — the job runs in the launchd `gui` domain and needs the logged-in session's Claude Code keychain login. Logs: `runs/<date>/run.log`. Uninstall: `scripts/install-schedule.sh --uninstall`.
@@ -29,7 +29,7 @@ plan → topics (refresh queue first, then user queue, then topic-scout) → job
 
 ## Files
 - `.claude/skills/weekly-run/SKILL.md` — the orchestrator procedure
-- `.claude/agents/*.md` — the five agents (`model: claude-sonnet-4-6`)
+- `.claude/agents/*.md` — the five agents (`model: sonnet`)
 - `seo-rules.md` — rules, payload contracts, schema/hreflang templates, audit codes
 - `scripts/hub.sh` — hub API wrapper (`plan, run-start, run-finish, create-job, step, audit, article, articles, schedule, jobs, selftest`)
 - `scripts/suggest.sh` — Google Autocomplete

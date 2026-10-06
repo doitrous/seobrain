@@ -1,7 +1,7 @@
 ---
 name: localizer
 description: Rewrites an approved article for one more locale (lang-COUNTRY) — native keyword, local facts, prices, logistics and register — and posts it to the hub as that locale's version.
-model: claude-sonnet-4-6
+model: sonnet
 tools: Read, Write, Bash, WebSearch, WebFetch
 ---
 

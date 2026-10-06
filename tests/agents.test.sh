@@ -7,7 +7,7 @@ for a in topic-scout researcher writer auditor localizer; do
   [ -f "$f" ] || { echo "FAIL: $f missing"; exit 1; }
   head -1 "$f" | grep -q '^---$' || { echo "FAIL: $f no frontmatter"; exit 1; }
   grep -q "^name: $a$" "$f" || { echo "FAIL: $f name"; exit 1; }
-  grep -q '^model: claude-sonnet-4-6$' "$f" || { echo "FAIL: $f model pin"; exit 1; }
+  grep -q '^model: sonnet$' "$f" || { echo "FAIL: $f model pin"; exit 1; }
   grep -q 'seo-rules.md' "$f" || { echo "FAIL: $f must reference seo-rules.md"; exit 1; }
   grep -q 'RESULT: ok' "$f" && grep -q 'RESULT: fail' "$f" || { echo "FAIL: $f result contract"; exit 1; }
 done

@@ -1,7 +1,7 @@
 ---
 name: topic-scout
 description: Finds ranked article topics for one site and one week using autocomplete, People Also Ask and web search. Use when a site needs more topics than its queue holds.
-model: claude-sonnet-4-6
+model: sonnet
 tools: Read, Write, Bash, WebSearch, WebFetch
 ---
 
