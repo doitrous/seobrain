@@ -126,6 +126,8 @@ code=0; SEO_BRAIN_MODEL=sonnet runr translate.sh || code=$?
 grep -q 'claude --model sonnet -p /weekly-run --translate-only' "$T/claude.calls" || fail "translate.sh should honour SEO_BRAIN_MODEL"
 # plan fixture carries the 1.18.0 pause flags
 scripts/hub.sh plan | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8")); process.exit(p.publishingPaused===false && p.sites.some(s=>s.site.publishingPaused===true) ? 0 : 1)' || fail "plan publishingPaused fields"
+# plan fixture carries 1.19.0 translateLocales
+scripts/hub.sh plan | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8")); process.exit(p.sites.every(s=>Array.isArray(s.site.translateLocales)) ? 0 : 1)' || fail "plan translateLocales fields"
 # exhausting retries on 5xx -> exit 3, HTTP 500 in stderr (run last: consumes the mock's forced-500 budget)
 curl -s localhost:3999/__down -H 'Authorization: Bearer tok' >/dev/null
 code=0; scripts/hub.sh selftest >/dev/null 2>"$T/errdown" || code=$?

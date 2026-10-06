@@ -49,10 +49,14 @@ Google's spam policy targets many pages made mainly to rank, not to help. We pub
 
 - **Information gain.** Every article carries something the current top results lack: a gap the researcher found in competitors, a site-specific fact, price, process detail, a named expert, or the owner's brief. If you cannot name it, do not write the article. Put it in the intro or the first sections, not the last paragraph.
 - **No find-and-replace pages.** Never publish a page whose only difference from another page is the city, country or keyword.
-- **Localized versions are rewrites, not translations.** Each has its own native keyword and local facts (Localization above). Only markets the hub queues are written: the hub caps extra versions per article (default 2, in the site's market priority order); never add a market on your own.
+- **Localized versions are rewrites, not translations.** Each has its own native keyword and local facts (Localization above). Only markets the hub queues are written: the hub caps extra versions per article (default 2, in the site's market priority order) unless the owner picked locales for the site (`site.translateLocales`, hub contract 1.19.0); never add a market on your own. Keep a locale only where there is real demand.
 - **No filler.** No generic intros ("In today's world…"), no padding to reach the word count, no section that restates the heading.
 - **No invented first-hand claims.** Never write "we tested", "our patients", "in our clinic" or similar unless the site profile or the owner's brief supports it. Cite sources instead.
 - **Medical pages** name the reviewing doctor from the site profile (`site.reviewer`).
+- **Modest volume.** Never create more jobs than the plan's `neededThisWeek` plus forced topics; cadence is deliberately low (2 articles/week per site).
+- **One site per topic.** Our own sites overlap on Egypt travel (egyphoria, yayatours, tourmedx, tourism-tourmedx). Never pick a topic whose search intent duplicates a sibling site's published or queued topic; the orchestrator lists them in `RUN_DIR/sibling-topics.json` (`{ "siteSlug", "titles" }` per other site). A forced or owner-briefed topic is exempt.
+- **Localize only where asked.** Write only into `site.translateLocales` / the locales the translate queue lists, never a market of your own and never a version the hub retired (localized versions with zero Search Console impressions after N days, default 90, go noindex and out of the sitemap; they count as stored, so never re-create or re-localize them).
+- **Owner detail leads.** When the topic brief or site brief contains a real detail (price, photo, doctor's note, tour detail), it is the article's lead information gain: put it in the intro or first sections.
 - The auditor enforces the first and fifth rules as critical judgment issues `no_information_gain` and `invented_experience`.
 
 ## Writing rules
@@ -373,6 +377,8 @@ A `queuedTopics[]` or `forcedTopics[]` row may carry `brief` — Omar's own idea
 ## Ledger ownership and optimize-first
 
 `/api/plan` also carries, per site: `ownedTopics` (this site's own `owned` rows in the topic ledger — `{ "normalizedKey", "language", "targetUrl" }`) and `optimizePreferred` (existing pages GSC evidence says to refresh rather than compete with a new draft — `{ "jobId", "slug", "lang", "query", "position" }`).
+
+**Picked languages and retired versions (hub contract 1.19.0, additive).** Each `/api/plan` `site` object carries `translateLocales`: the locales every article of that site is localized into (the owner's per-site pick, else the top `LOCALES_PER_ARTICLE` markets); the translate queue follows the same list. The hub retires (noindex, out of the sitemap) localized versions with zero Search Console impressions after N days (default 90); retired versions count as stored, so the brain never re-creates or re-localizes them. Site cadence is 2 articles/week.
 
 **Pause and approval flags (hub contract 1.18.0, additive).** `/api/plan` carries a top-level `publishingPaused` (global kill switch) and, on each `site` object, `publishingPaused`, `requireApproval` and `draftOnly`. The orchestrator creates no jobs for a paused site (or for any site when the global switch is on) and lists them under `skippedPaused` in the run summary; a missing field means `false` (older hubs). `POST /api/jobs/:id/schedule` never returns `publish_blocked` — the publish gate runs later in the hub cron — so the summary derives per-site `awaitingApproval` (scheduled jobs on sites with `requireApproval` or `draftOnly`) from the plan and prints "N articles wait for your approval in the hub" (SKILL.md §7–§8). A 409 `publish_blocked` from `schedule` is still tolerated if a hub ever returns one.
 

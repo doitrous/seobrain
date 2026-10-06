@@ -27,6 +27,7 @@ You write one locale's version of an article a human already approved. This is a
 9. Post: `scripts/hub.sh article <JOB_ID> RUN_DIR/job-<JOB_ID>/article-<LOCALE>.json`, then write `{"locale":"<LOCALE>","words":<n>}` to `RUN_DIR/job-<JOB_ID>/localize-<LOCALE>.json` and run `scripts/hub.sh step <JOB_ID> localize:<LOCALE> <that file>`. A 409 `source_not_approved` means the source is not approved yet — stop, it is not an error to retry.
 
 ## Rules
+- Localize only into a locale the translate queue lists (it follows `site.translateLocales`, hub contract 1.19.0). Never add a market and never re-create a retired version (the hub noindexes localized versions with no Search Console impressions; they count as stored).
 - Never leave untranslated sentences from the source. Never transliterate whole sentences.
 - Internal link anchor text is rewritten natively; the link paths change only the `<lang>` segment: `/blog/<LANG>/<slug>`.
 - Two versions in the same language must differ substantively (local keyword, prices, logistics, examples, wording) — the hub fails `locale_near_duplicate` otherwise.

@@ -3,7 +3,7 @@ const http = require('node:http')
 const log = []
 let flaky = 0 // number of 500s to return before succeeding on /api/plan
 let down = 0 // number of requests to force to 500 (exhaustion test)
-let contractVersion = '1.18.0' // GET /api/contracts/version; /__contract-major-bump flips this to test the abort path
+let contractVersion = '1.19.0' // GET /api/contracts/version; /__contract-major-bump flips this to test the abort path
 let mockBriefs = [] // GET /api/briefs; /__set-briefs (POST body {briefs:[...]}) seeds it for a test
 const STEP_NAME = /^(research|outline|draft|audit|checklist|image_brief|localize:[a-z-]+)$/
 const server = http.createServer((req, res) => {
@@ -18,11 +18,11 @@ const server = http.createServer((req, res) => {
     if (req.url === '/__down') { down = 5; return send(200, {}) }
     if (req.url === '/__flaky') { flaky = 2; return send(200, {}) }
     if (req.url === '/__contract-major-bump') { contractVersion = '2.0.0'; return send(200, {}) }
-    if (req.url === '/__contract-reset') { contractVersion = '1.18.0'; return send(200, {}) }
+    if (req.url === '/__contract-reset') { contractVersion = '1.19.0'; return send(200, {}) }
     if (req.url === '/__set-briefs') { mockBriefs = parsed.briefs; return send(200, {}) }
     if (down > 0) { down--; return send(500, { error: 'down' }) }
     if (req.url === '/api/contracts/version') return send(200, { version: contractVersion })
-    if (req.url === '/api/plan') { if (flaky > 0) { flaky--; return send(500, { error: 'boom' }) } return send(200, { weekOf: '2026-08-31', publishingPaused: false, sites: [{ site: { id: 1, slug: 's', publishingPaused: false, requireApproval: false, draftOnly: false }, neededThisWeek: 1 }, { site: { id: 2, slug: 'paused', publishingPaused: true, requireApproval: true, draftOnly: false }, neededThisWeek: 1 }, { site: { id: 3, slug: 'forced' }, neededThisWeek: 0, forcedTopics: [{ id: 7 }] }, { site: { id: 4, slug: 'idle' }, neededThisWeek: 0, forcedTopics: [] }] }) }
+    if (req.url === '/api/plan') { if (flaky > 0) { flaky--; return send(500, { error: 'boom' }) } return send(200, { weekOf: '2026-08-31', publishingPaused: false, sites: [{ site: { id: 1, slug: 's', translateLocales: ['ar-SA'], publishingPaused: false, requireApproval: false, draftOnly: false }, neededThisWeek: 1 }, { site: { id: 2, slug: 'paused', translateLocales: ['ar-SA'], publishingPaused: true, requireApproval: true, draftOnly: false }, neededThisWeek: 1 }, { site: { id: 3, slug: 'forced', translateLocales: ['ar-SA'] }, neededThisWeek: 0, forcedTopics: [{ id: 7 }] }, { site: { id: 4, slug: 'idle', translateLocales: [] }, neededThisWeek: 0, forcedTopics: [] }] }) }
     if (req.url === '/api/translate-queue') return send(200, { enabled: true, jobs: [{ jobId: 42, siteId: 1, siteSlug: 's', primaryLang: 'en', sourceLocale: 'en-GB', locales: [{ locale: 'fr-FR', lang: 'fr', country: 'FR', rework: false }], langs: ['fr'] }] })
     if (req.url === '/api/runs' && req.method === 'POST') return send(201, { run: { id: 7 } })
     if (/^\/api\/runs\/\d+$/.test(req.url) && req.method === 'PATCH') return send(200, { run: { id: 7, summary: log.at(-1).body.summary } })
