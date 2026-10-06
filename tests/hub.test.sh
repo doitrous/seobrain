@@ -71,6 +71,61 @@ grep -q 'major' "$T/errcontract" || fail "contract mismatch message should menti
 curl -s localhost:3999/__contract-reset -H 'Authorization: Bearer tok' >/dev/null
 [ "$(scripts/hub.sh selftest 2>"$T/errok")" = "2026-08-31" ] || fail "selftest should pass again once contract major matches"
 grep -q 'continuing' "$T/errok" || fail "matching contract major should print a continuing note"
+# weekly.sh / translate.sh: distinguish failures, notify, exit non-zero (stub claude + osascript via a fake HOME)
+R="$T/repo"; mkdir -p "$R/scripts" "$T/home/.local/bin"
+cp scripts/weekly.sh scripts/translate.sh scripts/notify.sh scripts/hub.sh "$R/scripts/"
+printf '#!/bin/sh\necho "claude $*" >> "%s/claude.calls"\nexit "${STUB_CLAUDE_RC:-0}"\n' "$T" > "$T/home/.local/bin/claude"
+printf '#!/bin/sh\necho "$*" >> "%s/osa.calls"\n' "$T" > "$T/home/.local/bin/osascript"
+chmod +x "$T/home/.local/bin/"*
+runr() { (cd "$R" && env -u HUB_URL -u HUB_TOKEN HOME="$T/home" bash "scripts/$1" >/dev/null 2>&1); }
+rm -f "$T/osa.calls" "$T/claude.calls"
+code=0; runr weekly.sh || code=$?
+[ "$code" -eq 1 ] || fail "weekly.sh without .env should exit 1 (got $code)"
+grep -q '.env missing' "$R"/runs/*/run.log || fail "weekly.sh should log missing .env"
+[ -s "$T/osa.calls" ] || fail "weekly.sh should notify on a failed selftest"
+rm -rf "$R/runs"; rm -f "$T/osa.calls"
+printf 'HUB_URL=http://localhost:3999\nHUB_TOKEN=wrong\n' > "$R/.env"
+code=0; runr weekly.sh || code=$?
+[ "$code" -eq 1 ] || fail "weekly.sh with a bad token should exit 1 (got $code)"
+grep -q 'hub rejected' "$R"/runs/*/run.log || fail "weekly.sh should log 4xx as hub rejected"
+! grep -q 'unreachable' "$R"/runs/*/run.log || fail "weekly.sh must not call a 4xx unreachable"
+rm -rf "$R/runs"
+printf 'HUB_URL=http://localhost:1\nHUB_TOKEN=tok\n' > "$R/.env"
+code=0; runr weekly.sh || code=$?
+[ "$code" -eq 3 ] || fail "weekly.sh with an unreachable hub should exit 3 (got $code)"
+grep -q 'hub unreachable' "$R"/runs/*/run.log || fail "weekly.sh should log unreachable"
+rm -rf "$R/runs"; rm -f "$T/osa.calls"
+printf 'HUB_URL=http://localhost:3999\nHUB_TOKEN=tok\n' > "$R/.env"
+code=0; runr weekly.sh || code=$?
+[ "$code" -eq 0 ] || fail "weekly.sh happy path should exit 0 (got $code)"
+grep -q 'claude --model opus -p /weekly-run' "$T/claude.calls" || fail "weekly.sh should run claude with the opus alias"
+[ ! -s "$T/osa.calls" ] || fail "no notification on success"
+grep -qF 'weekly-run --site s' "$T/claude.calls" || fail "weekly.sh should run one session for site s"
+grep -qF 'weekly-run --site forced' "$T/claude.calls" || fail "weekly.sh should run a site that only has forcedTopics"
+! grep -qE 'site (paused|idle)' "$T/claude.calls" || fail "weekly.sh must skip paused and idle sites"
+[ "$(wc -l < "$T/claude.calls")" -eq 2 ] || fail "weekly.sh should start exactly one session per site with work"
+! grep -q -- '--resume' "$T/claude.calls" || fail "no --resume without state.json"
+mkdir -p "$R/runs/$(date +%F)/s"; echo '{}' > "$R/runs/$(date +%F)/s/state.json"; rm -f "$T/claude.calls"
+runr weekly.sh || fail "weekly.sh resume run should exit 0"
+grep -qF 'weekly-run --site s --resume' "$T/claude.calls" || fail "weekly.sh should pass --resume for a site with state.json"
+! grep -qF 'site forced --resume' "$T/claude.calls" || fail "--resume only for sites with state"
+rm -f "$T/claude.calls"
+code=0; STUB_CLAUDE_RC=2 runr weekly.sh || code=$?
+[ "$code" -eq 2 ] || fail "weekly.sh should exit with claude's non-zero code (got $code)"
+[ -s "$T/osa.calls" ] || fail "weekly.sh should notify when claude fails"
+[ "$(grep -c 'claude --model' "$T/claude.calls")" -ge 2 ] || fail "weekly.sh must continue to the next site after a failure"
+rm -rf "$R/runs"; rm -f "$T/osa.calls" "$T/claude.calls"
+# translate.sh: bad token notifies; reachable hub with a queued version runs claude; SEO_BRAIN_MODEL overrides the alias
+printf 'HUB_URL=http://localhost:3999\nHUB_TOKEN=wrong\n' > "$R/.env"
+code=0; runr translate.sh || code=$?
+[ "$code" -eq 1 ] || fail "translate.sh with a bad token should exit 1 (got $code)"
+[ -s "$T/osa.calls" ] || fail "translate.sh should notify on a queue error"
+printf 'HUB_URL=http://localhost:3999\nHUB_TOKEN=tok\n' > "$R/.env"
+code=0; SEO_BRAIN_MODEL=sonnet runr translate.sh || code=$?
+[ "$code" -eq 0 ] || fail "translate.sh happy path should exit 0 (got $code)"
+grep -q 'claude --model sonnet -p /weekly-run --translate-only' "$T/claude.calls" || fail "translate.sh should honour SEO_BRAIN_MODEL"
+# plan fixture carries the 1.18.0 pause flags
+scripts/hub.sh plan | node -e 'const p=JSON.parse(require("fs").readFileSync(0,"utf8")); process.exit(p.publishingPaused===false && p.sites.some(s=>s.site.publishingPaused===true) ? 0 : 1)' || fail "plan publishingPaused fields"
 # exhausting retries on 5xx -> exit 3, HTTP 500 in stderr (run last: consumes the mock's forced-500 budget)
 curl -s localhost:3999/__down -H 'Authorization: Bearer tok' >/dev/null
 code=0; scripts/hub.sh selftest >/dev/null 2>"$T/errdown" || code=$?

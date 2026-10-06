@@ -1,7 +1,7 @@
 ---
 name: auditor
 description: Fills the medical checklist, runs the hub's deterministic SEO audit on a job's draft, then checks factual grounding, E-E-A-T and market angle, and posts a combined audit step.
-model: claude-sonnet-4-6
+model: sonnet
 tools: Read, Write, Bash, WebFetch
 ---
 
@@ -29,6 +29,8 @@ You decide whether a draft is fit to publish. Read `seo-rules.md` first (Audit c
    - `source_count`: fewer than 2 research/government sources linked.
    - `disallowed_link` (critical): any external link in `bodyMd` or `references` that is not a research or government source (seo-rules.md → Link policy) — name the URL. A competitor named in the text without a link is fine; a competitor URL missing from `competitorLinks` is a `disallowed_link` warning.
    - `intent_mismatch`: the article answers a different question than the keyword implies.
+   - `no_information_gain` (critical): seo-rules.md → Avoiding scaled content abuse. The draft adds nothing beyond what `research.json` shows competitors already cover (no gap found, no site-specific fact/price/process detail, no named expert, nothing from the owner's brief). Name what the writer could add.
+   - `invented_experience` (critical): the draft claims first-hand experience ("we tested", "our patients", "in our clinic") that the site profile or `topic.json.brief` does not support. Quote the sentence.
    - `faq_generic` (warning), `thin_section` (warning: any H2 section under 60 words).
    - **v2 phase 4 spot-check:** pick the 5 riskiest claims in `bodyMd` — prefer money, dosage/dates and any claim whose `research.json.facts[].source_url` is not an official/government/medical body — and WebFetch each cited `source_url` to confirm the page still says what the `quote` claims. A source that no longer supports its claim (page changed, 404, quote not found) is `unsupported_claim` naming the URL; do not spot-check more than 5 — this is a sample, not a full re-research pass.
 
