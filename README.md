@@ -18,7 +18,7 @@ claude --model "${SEO_BRAIN_MODEL:-opus}" -p "/weekly-run --resume"   # continue
 Or interactively: `claude --model "${SEO_BRAIN_MODEL:-opus}"` then type `/weekly-run`.
 
 ## Schedule (Friday 07:00, this Mac)
-`scripts/install-schedule.sh` installs a launchd agent that runs `scripts/weekly.sh`. The Mac must be awake at 07:00 (System Settings → Energy, or `pmset repeat wakeorpoweron F 06:55:00` once with admin rights) **and Omar must be logged in** — the job runs in the launchd `gui` domain and needs the logged-in session's Claude Code keychain login. Logs: `runs/<date>/run.log`. Uninstall: `scripts/install-schedule.sh --uninstall`.
+`scripts/install-schedule.sh` installs a launchd agent that runs `scripts/weekly.sh`. The Mac must be awake at 07:00 (System Settings → Energy, or `pmset repeat wakeorpoweron F 06:55:00` once with admin rights) **and Omar must be logged in** — the job runs in the launchd `gui` domain and needs the logged-in session's Claude Code keychain login. The checkout must live outside `~/Documents`, `~/Desktop`, `~/Downloads` and iCloud Drive: macOS blocks launchd from running scripts there (every run dies with `Operation not permitted` in `runs/launchd.log`), so the installer refuses those paths. Logs: `runs/<date>/run.log`. Uninstall: `scripts/install-schedule.sh --uninstall`.
 
 It also installs a daily 09:00 localization pass, `scripts/translate.sh`: it localizes jobs Omar approved (`/weekly-run --translate-only`, hub contract 1.17.0), exits without starting Claude when the hub's translate queue is empty, and `LOCALIZE_DAILY_MAX` caps the versions written per day (default 40). Log: `runs/<date>/translate.log`.
 

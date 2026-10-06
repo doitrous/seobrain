@@ -4,6 +4,16 @@
 set -euo pipefail
 case ${1:-} in ""|--uninstall) ;; *) echo "usage: $0 [--uninstall]" >&2; exit 2 ;; esac
 REPO=$(cd "$(dirname "$0")/.." && pwd)
+# macOS privacy (TCC) blocks launchd's /bin/bash from ~/Documents, ~/Desktop, ~/Downloads and iCloud
+# Drive: every scheduled run then dies with "Operation not permitted" in runs/launchd.log and never
+# starts. Refuse to install from there; move the checkout (e.g. ~/seo-brain) and re-run this script.
+case "$REPO" in
+  "$HOME/Documents"*|"$HOME/Desktop"*|"$HOME/Downloads"*|"$HOME/Library/Mobile Documents"*)
+    [ "${1:-}" = "--uninstall" ] || {
+      echo "refusing to install: $REPO is in a macOS-protected folder, where launchd cannot run scripts" >&2
+      echo "move the checkout outside ~/Documents, ~/Desktop, ~/Downloads and iCloud Drive (e.g. ~/seo-brain), then re-run" >&2
+      exit 1; } ;;
+esac
 for LABEL in com.doitrous.seo-brain com.doitrous.seo-brain-translate; do
   DEST="$HOME/Library/LaunchAgents/$LABEL.plist"
   launchctl bootout "gui/$(id -u)/$LABEL" 2>/dev/null || true
