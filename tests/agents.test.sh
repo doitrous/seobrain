@@ -70,4 +70,10 @@ grep -qF -- '--translate-only' .claude/skills/weekly-run/SKILL.md || { echo "FAI
 grep -qF 'LOCALIZE_DAILY_MAX' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: weekly-run must cap daily localizations"; exit 1; }
 grep -qF 'omit `locale`' .claude/agents/writer.md || { echo "FAIL: writer must omit locale when topic.lang is not the site source language"; exit 1; }
 grep -qF 'site.sourceLocale' .claude/agents/topic-scout.md || { echo "FAIL: topic-scout must place topics only in the source locale"; exit 1; }
+grep -qF 'Avoiding scaled content abuse' seo-rules.md || { echo "FAIL: seo-rules.md must have the scaled-content-abuse section"; exit 1; }
+for c in no_information_gain invented_experience; do
+  grep -qF "$c" .claude/agents/auditor.md || { echo "FAIL: auditor must check $c"; exit 1; }
+  grep -qF "$c" seo-rules.md || { echo "FAIL: seo-rules.md must document $c"; exit 1; }
+done
+grep -qF 'Avoiding scaled content abuse' .claude/agents/writer.md || { echo "FAIL: writer must reference the scaled-content-abuse section"; exit 1; }
 echo "agents.test.sh: all passed"
