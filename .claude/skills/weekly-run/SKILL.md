@@ -7,10 +7,10 @@ description: Produce this week's SEO articles for every enabled site — plan fr
 
 You are the orchestrator. You never write article text yourself; you dispatch the agents and keep state. Model: this session runs as Opus (the `opus` alias, overridable with SEO_BRAIN_MODEL; `claude --model "${SEO_BRAIN_MODEL:-opus}"`).
 
-Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` (only that site), `--dry-run` (plan and choose topics, create no jobs), `--translate-only` (run §0 then only §7b — the daily localization run).
+Arguments: `--resume` (continue today's run from `state.json`), `--site <slug>` (only that site; `scripts/weekly.sh` runs one session per site this way, so a long week never exhausts one session), `--dry-run` (plan and choose topics, create no jobs), `--translate-only` (run §0 then only §7b — the daily localization run).
 
 ## 0. Setup
-- Run `date +%F`; that is DATE. RUN_DIR is `runs/<date>`. Run `mkdir -p RUN_DIR`.
+- Run `date +%F`; that is DATE. RUN_DIR is `runs/<date>`, or `runs/<date>/<slug>` with `--site <slug>` so each site's `state.json`, plan and job files and `--resume` stay separate. Run `mkdir -p RUN_DIR`.
 - Run `scripts/hub.sh selftest` once (it also checks the hub's contract version — see Rules). `scripts/weekly.sh` already runs this before dispatching you, so it is nearly instant then; running it again is cheap and covers a manual or cloud-routine invocation that skipped weekly.sh.
 - Without `--resume`: run `scripts/hub.sh plan RUN_DIR/plan.json` (the second argument is the output file; never use a shell redirect, pipe, `;` or `bash` prefix with `scripts/hub.sh` — only the plain form is permitted in the unattended run, for you and for every agent). For each site in `plan.sites` write `RUN_DIR/site-<site.id>.json` containing the whole plan entry (`site`, `neededThisWeek`, `marketPlan`, `forcedTopics`, `queuedTopics`, `publishedTitles`, `existingArticles`, `bannedPhrases`, `blockedTopics`, `ownedTopics`, `funnelGap`, `optimizePreferred`, `keywordIdeas`, `keywordVolumes`, `recommendedTargets` — ranked business and SERP candidates from SEOhub).
 - `--dry-run` stops here: it does not run `run-start` and does not write `state.json`; only `plan.json` and the per-site files above are written, and §1 prints the chosen topics and stops.

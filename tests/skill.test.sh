@@ -14,4 +14,5 @@ grep -qF -- 'omit `hubRole`/`slug` entirely for a scout-discovered or queued-top
 node -e 'const s=require("./.claude/settings.json"); const a=s.permissions.allow; for (const need of ["Bash(scripts/hub.sh:*)","Bash(scripts/suggest.sh:*)","WebSearch","WebFetch","Agent","Read","Write"]) if(!a.includes(need)) {console.error("FAIL: settings missing "+need); process.exit(1)}'
 node -e 'const s=require("./.claude/settings.json"); const d=s.permissions.deny; if(!Array.isArray(d)||!d.includes("Read(./.env)")) {console.error("FAIL: settings.json permissions.deny must include Read(./.env)"); process.exit(1)}'
 grep -q 'SEO_BRAIN_MODEL' CLAUDE.md || { echo "FAIL: CLAUDE.md must state the orchestrator model"; exit 1; }
+grep -qF 'runs/<date>/<slug>' "$f" || { echo "FAIL: --site must use a per-site RUN_DIR"; exit 1; }
 echo "skill.test.sh: all passed"
