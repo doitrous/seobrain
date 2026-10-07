@@ -64,6 +64,11 @@ case ${1:-} in
   # v2 phase 4 companion (ticket 4b, "pull approved briefs/opportunities"): the hub-approved
   # briefs for one site, ready to hand straight to `create-job` as `{"siteId", "briefId"}`.
   briefs)     api GET "/api/briefs?siteId=$2&status=approved" | tee "${3:-/dev/null}" ;;
+  # contract 1.21.0: keyword volumes and the live SERP through the hub's 30-day cache and monthly
+  # DataForSEO cap. SITE is the plan's site.id (a slug works too). Any non-zero exit (e.g. HTTP 429
+  # {"error":"dataforseo_cap"}) means "no data": the caller carries on without it, never retries.
+  keyword-metrics) api POST "/api/sites/$2/keyword-metrics" "$3" | tee "${4:-/dev/null}" ;;
+  serp)       api POST "/api/sites/$2/serp" "$3" | tee "${4:-/dev/null}" ;;
   selftest)   check_contract_version; out=$(api GET /api/plan); jget .weekOf <<<"$out" ;;
-  *) echo "usage: hub.sh plan [OUTFILE]|translate-queue [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|briefs SITE_ID [OUTFILE]|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
+  *) echo "usage: hub.sh plan [OUTFILE]|translate-queue [OUTFILE]|run-start|run-finish ID FILE|create-job FILE|step JOB NAME FILE|audit JOB [OUTFILE]|article JOB FILE|articles JOB [OUTFILE]|schedule JOB|jobs|briefs SITE_ID [OUTFILE]|keyword-metrics SITE IN_FILE [OUTFILE]|serp SITE IN_FILE [OUTFILE]|selftest (exit 1 = client error (4xx) or major contract mismatch, 3 = hub unreachable)" >&2; exit 2 ;;
 esac
