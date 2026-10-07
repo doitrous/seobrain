@@ -77,4 +77,14 @@ for c in no_information_gain invented_experience; do
   grep -qF "$c" seo-rules.md || { echo "FAIL: seo-rules.md must document $c"; exit 1; }
 done
 grep -qF 'Avoiding scaled content abuse' .claude/agents/writer.md || { echo "FAIL: writer must reference the scaled-content-abuse section"; exit 1; }
+# contract 1.21.0: DataForSEO through the hub, one call per market (scout) / per job (researcher), fall back on failure
+grep -qF 'scripts/hub.sh keyword-metrics' .claude/agents/topic-scout.md || { echo "FAIL: scout must fetch keyword metrics through hub.sh"; exit 1; }
+grep -qF 'once' .claude/agents/topic-scout.md && grep -qF 'Never call it per keyword' .claude/agents/topic-scout.md || { echo "FAIL: scout must make one keyword-metrics call per market"; exit 1; }
+grep -qF 'keywordVolumes' .claude/agents/topic-scout.md || { echo "FAIL: scout must skip keywords already in keywordVolumes"; exit 1; }
+grep -qF 'dataforseo_cap' .claude/agents/topic-scout.md || { echo "FAIL: scout must fall back on dataforseo_cap"; exit 1; }
+grep -qF 'scripts/hub.sh serp' .claude/agents/researcher.md || { echo "FAIL: researcher must fetch the SERP through hub.sh"; exit 1; }
+grep -qF 'one call per job' .claude/agents/researcher.md || { echo "FAIL: researcher must make one serp call per job"; exit 1; }
+grep -qF 'dataforseo_cap' .claude/agents/researcher.md && grep -qF 'WebSearch the keyword three ways' .claude/agents/researcher.md || { echo "FAIL: researcher must fall back to WebSearch"; exit 1; }
+grep -qF 'Keyword metrics and SERP budget (hub contract 1.21.0)' seo-rules.md || { echo "FAIL: seo-rules must document the keyword metrics / SERP budget"; exit 1; }
+for c in 'keyword-metrics)' 'serp)'; do grep -qF "  $c" scripts/hub.sh || { echo "FAIL: hub.sh must expose $c"; exit 1; }; done
 echo "agents.test.sh: all passed"

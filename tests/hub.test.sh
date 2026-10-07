@@ -42,6 +42,23 @@ curl -s -X POST localhost:3999/__set-briefs -H 'Authorization: Bearer tok' -H 'c
 BRIEF=$(scripts/hub.sh briefs 1)
 echo "$BRIEF" | grep -q '"hubRole":"pillar"' || fail "briefs must pass through hubRole unchanged"
 echo "$BRIEF" | grep -q '"slug":"destination-giza"' || fail "briefs must pass through the pinned slug"
+# contract 1.21.0: keyword-metrics and serp post IN_FILE to /api/sites/SITE/... and write OUT_FILE
+echo '{"lang":"ar","country":"SA","keywords":["زراعة الشعر","hair cost"]}' > "$T/kw.json"
+scripts/hub.sh keyword-metrics 1 "$T/kw.json" "$T/kw-out.json" >/dev/null || fail keyword-metrics
+node -e 'const r=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.exit(r.source==="dataforseo" && r.results.length===2 && r.results[0].volume===320 && r.results[1].volume===null ? 0 : 1)' "$T/kw-out.json" || fail "keyword-metrics OUTFILE"
+scripts/hub.sh keyword-metrics s "$T/kw.json" | grep -q '"source":"dataforseo"' || fail "keyword-metrics by slug"
+echo '{"lang":"ar","country":"SA","keywords":["capped"]}' > "$T/kwcap.json"
+code=0; scripts/hub.sh keyword-metrics 1 "$T/kwcap.json" "$T/kwcap-out.json" >/dev/null 2>"$T/errcap" || code=$?
+[ "$code" -eq 1 ] || fail "dataforseo cap should exit 1 (got $code)"
+grep -q 'HTTP 429' "$T/errcap" && grep -q 'dataforseo_cap' "$T/errcap" || fail "cap error must print HTTP 429 and dataforseo_cap to stderr"
+echo '{"lang":"ar","country":"AE","keywords":["x"]}' > "$T/kwbad.json"
+scripts/hub.sh keyword-metrics 1 "$T/kwbad.json" >/dev/null 2>"$T/errkw" && fail "unknown market should exit 1"
+grep -q 'unknown_market' "$T/errkw" || fail "unknown market body to stderr"
+echo '{"lang":"en","country":"EG","keyword":"hair transplant cost egypt"}' > "$T/serp.json"
+scripts/hub.sh serp 1 "$T/serp.json" "$T/serp-out.json" >/dev/null || fail serp
+grep -q '"url":"https://a.example/x"' "$T/serp-out.json" || fail "serp OUTFILE"
+echo '{"lang":"en","country":"EG","keyword":"free"}' > "$T/serpfree.json"
+scripts/hub.sh serp 1 "$T/serpfree.json" | grep -q '"results":\[\]' || fail "serp free fallback shape"
 scripts/hub.sh schedule 99 >/dev/null 2>"$T/err" && fail "4xx should exit 1"; grep -q 'not found' "$T/err" || fail "4xx body to stderr"
 grep -q 'HTTP 404' "$T/err" || fail "4xx HTTP line missing"
 curl -s localhost:3999/__flaky -H 'Authorization: Bearer tok' >/dev/null
@@ -52,7 +69,8 @@ const log=JSON.parse(require("fs").readFileSync(0,"utf8"));
 const s=log.find(r=>r.url==="/api/jobs/42/steps");
 if(!s||s.body.name!=="research"||JSON.stringify(s.body.payload)!=="{\"facts\":[]}")process.exit(1);
 if(!log.every(r=>r.auth==="Bearer tok"))process.exit(2);
-const f=log.find(r=>r.url==="/api/runs/7"); if(f.body.summary.jobs!==3)process.exit(3);'
+const f=log.find(r=>r.url==="/api/runs/7"); if(f.body.summary.jobs!==3)process.exit(3);
+const k=log.find(r=>r.url==="/api/sites/1/keyword-metrics"); if(!k||k.method!=="POST"||k.body.keywords.length!==2)process.exit(4);'
 # environment must win over .env
 cp -r scripts "$T/scripts"
 printf 'HUB_URL=http://localhost:1\nHUB_TOKEN=wrong\n' > "$T/.env"

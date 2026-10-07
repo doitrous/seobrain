@@ -3,7 +3,7 @@ const http = require('node:http')
 const log = []
 let flaky = 0 // number of 500s to return before succeeding on /api/plan
 let down = 0 // number of requests to force to 500 (exhaustion test)
-let contractVersion = '1.19.0' // GET /api/contracts/version; /__contract-major-bump flips this to test the abort path
+let contractVersion = '1.21.0' // GET /api/contracts/version; /__contract-major-bump flips this to test the abort path
 let mockBriefs = [] // GET /api/briefs; /__set-briefs (POST body {briefs:[...]}) seeds it for a test
 const STEP_NAME = /^(research|outline|draft|audit|checklist|image_brief|localize:[a-z-]+)$/
 const server = http.createServer((req, res) => {
@@ -18,7 +18,7 @@ const server = http.createServer((req, res) => {
     if (req.url === '/__down') { down = 5; return send(200, {}) }
     if (req.url === '/__flaky') { flaky = 2; return send(200, {}) }
     if (req.url === '/__contract-major-bump') { contractVersion = '2.0.0'; return send(200, {}) }
-    if (req.url === '/__contract-reset') { contractVersion = '1.19.0'; return send(200, {}) }
+    if (req.url === '/__contract-reset') { contractVersion = '1.21.0'; return send(200, {}) }
     if (req.url === '/__set-briefs') { mockBriefs = parsed.briefs; return send(200, {}) }
     if (down > 0) { down--; return send(500, { error: 'down' }) }
     if (req.url === '/api/contracts/version') return send(200, { version: contractVersion })
@@ -29,6 +29,20 @@ const server = http.createServer((req, res) => {
     if (req.url === '/api/jobs' && req.method === 'POST') return send(201, { job: { id: 42, state: 'planned', weekOf: '2026-08-31' } })
     if (req.url === '/api/jobs' && req.method === 'GET') return send(200, { jobs: [] })
     if (/^\/api\/briefs\?/.test(req.url) && req.method === 'GET') return send(200, { briefs: mockBriefs })
+    // contract 1.21.0: site 1 has markets SA/ar and EG/en; country outside them → 400; keyword "capped" → 429
+    if (/^\/api\/sites\/(1|s)\/keyword-metrics$/.test(req.url) && req.method === 'POST') {
+      const b = parsed || {}
+      if (!['SA', 'EG'].includes(String(b.country).toUpperCase())) return send(400, { error: 'unknown_market' })
+      if (!Array.isArray(b.keywords) || !b.keywords.length) return send(400, { error: 'bad keywords' })
+      if (b.keywords.includes('capped')) return send(429, { error: 'dataforseo_cap' })
+      return send(200, { source: 'dataforseo', results: b.keywords.map((k, i) => ({ keyword: k, volume: i ? null : 320, cpc: i ? null : 0.4, competition: i ? null : 0.3 })) })
+    }
+    if (/^\/api\/sites\/(1|s)\/serp$/.test(req.url) && req.method === 'POST') {
+      const b = parsed || {}
+      if (!['SA', 'EG'].includes(String(b.country).toUpperCase()) || !b.keyword) return send(400, { error: 'unknown_market' })
+      if (b.keyword === 'free') return send(200, { source: 'free', keyword: b.keyword, results: [], features: {} })
+      return send(200, { source: 'dataforseo', keyword: b.keyword, results: [{ position: 1, url: 'https://a.example/x', title: 'A' }], features: { aiOverview: true } })
+    }
     if (/^\/api\/jobs\/42\/steps$/.test(req.url)) {
       if (!parsed || !STEP_NAME.test(parsed.name)) return send(400, { error: 'bad step' })
       return send(200, { job: { id: 42, state: 'researched' } })
