@@ -85,6 +85,11 @@ grep -qF 'dataforseo_cap' .claude/agents/topic-scout.md || { echo "FAIL: scout m
 grep -qF 'scripts/hub.sh serp' .claude/agents/researcher.md || { echo "FAIL: researcher must fetch the SERP through hub.sh"; exit 1; }
 grep -qF 'one call per job' .claude/agents/researcher.md || { echo "FAIL: researcher must make one serp call per job"; exit 1; }
 grep -qF 'dataforseo_cap' .claude/agents/researcher.md && grep -qF 'WebSearch the keyword three ways' .claude/agents/researcher.md || { echo "FAIL: researcher must fall back to WebSearch"; exit 1; }
+grep -qF 'Hub DataForSEO intel (hub contract 1.23.0)' seo-rules.md || { echo "FAIL: seo-rules must document the hub DataForSEO intel"; exit 1; }
+grep -qF 'keywordGaps' .claude/agents/topic-scout.md || { echo "FAIL: scout must prefer keywordGaps"; exit 1; }
+grep -qF 'difficulty' .claude/agents/topic-scout.md || { echo "FAIL: scout must weigh keyword difficulty"; exit 1; }
+grep -qF 'rankings.drops' .claude/skills/weekly-run/SKILL.md || { echo "FAIL: orchestrator must refresh rank drops"; exit 1; }
+grep -qF 'peopleAlsoAskQuestions' .claude/agents/researcher.md && grep -qF 'aiOverviewSources' .claude/agents/researcher.md || { echo "FAIL: researcher must use SERP features"; exit 1; }
 grep -qF 'Keyword metrics and SERP budget (hub contract 1.21.0)' seo-rules.md || { echo "FAIL: seo-rules must document the keyword metrics / SERP budget"; exit 1; }
 for c in 'keyword-metrics)' 'serp)'; do grep -qF "  $c" scripts/hub.sh || { echo "FAIL: hub.sh must expose $c"; exit 1; }; done
 echo "agents.test.sh: all passed"
