@@ -85,6 +85,8 @@ grep -qF 'dataforseo_cap' .claude/agents/topic-scout.md || { echo "FAIL: scout m
 grep -qF 'scripts/hub.sh serp' .claude/agents/researcher.md || { echo "FAIL: researcher must fetch the SERP through hub.sh"; exit 1; }
 grep -qF 'one call per job' .claude/agents/researcher.md || { echo "FAIL: researcher must make one serp call per job"; exit 1; }
 grep -qF 'dataforseo_cap' .claude/agents/researcher.md && grep -qF 'WebSearch the keyword three ways' .claude/agents/researcher.md || { echo "FAIL: researcher must fall back to WebSearch"; exit 1; }
+# contract 1.24.0: internal links only to live rows in the article's language
+grep -qF 'live: true' .claude/agents/writer.md && grep -qF 'live: true' seo-rules.md || { echo "FAIL: writer must link only live existingArticles"; exit 1; }
 grep -qF 'Hub DataForSEO intel (hub contract 1.23.0)' seo-rules.md || { echo "FAIL: seo-rules must document the hub DataForSEO intel"; exit 1; }
 grep -qF 'keywordGaps' .claude/agents/topic-scout.md || { echo "FAIL: scout must prefer keywordGaps"; exit 1; }
 grep -qF 'difficulty' .claude/agents/topic-scout.md || { echo "FAIL: scout must weigh keyword difficulty"; exit 1; }
